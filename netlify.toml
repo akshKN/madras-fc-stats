@@ -1,0 +1,14 @@
+# The site is plain HTML/JS — nothing to build.
+# Match data is NOT deployed here; the site reads it live from the repo's `data` branch,
+# so new matches never cost Netlify credits.
+[build]
+  publish = "site"
+  command = "echo 'static site — no build step'"
+  # Only redeploy when the website itself changes (saves credits shared with your other site).
+  ignore = "bash scripts/netlify-ignore.sh"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

@@ -1,0 +1,14 @@
+{
+  "name": "madras-fc-tracker",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "poll": "node scripts/poll.mjs",
+    "test": "node --test scripts/test/*.test.mjs",
+    "serve": "node scripts/serve.mjs"
+  },
+  "dependencies": {
+    "impit": "0.14.8"
+  }
+}
