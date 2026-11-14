@@ -17,7 +17,7 @@ A free, self-updating stats site for **MADRAS  FC** (EA FC 27 Pro Clubs, 11v11 l
 ### 2. Point the site at your data
 Edit `site/config.js` and replace the placeholders:
 ```js
-dataBase: 'https://raw.githubusercontent.com/<your-github-username>/madras-fc-stats/data/',
+dataBase: 'https://raw.githubusercontent.com/akshKN/madras-fc-stats/data/',
 ```
 Commit and push.
 
