@@ -65,3 +65,29 @@ test('weekly series and career deltas', () => {
   assert.equal(d.length, 1);
   assert.equal(d[0].goals, 2);
 });
+
+test('player profile aggregates tracked, career, best games and milestones', async () => {
+  const { playerProfile } = await import('../../site/stats.js');
+  const { normalizeMembers } = await import('../lib/normalize.mjs');
+  const raw = JSON.parse((await import('node:fs')).readFileSync(new URL('../../fixtures/members.json', import.meta.url)));
+  const members = normalizeMembers(raw); // same shape the site reads from members.json
+  const p = playerProfile(matches, members, 'kartiyksn');
+  assert.equal(p.tracked.g, 4);
+  assert.equal(p.career.goals, 86);
+  assert.equal(p.ratingSeries.length, p.tracked.apps);
+  assert.ok(p.ratingSeries[0].ts < p.ratingSeries.at(-1).ts, 'rating series is chronological');
+  assert.equal(p.best[0].rating, 9.7); // best game first
+  const goalsM = p.milestones.find((m) => m.key === 'goals');
+  assert.equal(goalsM.target, 100); // 86 → next 25-multiple above
+  assert.equal(goalsM.toGo, 14);
+  assert.ok(p.partners.length > 0 && p.partners.every((x) => x.name !== 'kartiyksn'));
+});
+
+test('weekly recap text has results and awards', async () => {
+  const { weeklyRecap } = await import('../../site/stats.js');
+  const txt = weeklyRecap(matches, { clubName: 'Madras FC', weekLabel: 'This week' });
+  assert.match(txt, /Madras FC/);
+  assert.match(txt, /\d+W \d+D \d+L/);
+  assert.match(txt, /Golden Boot: naveenboltz/);
+  assert.match(txt, /church soccer \(forfeit\)/);
+});

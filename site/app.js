@@ -11,6 +11,8 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const pct = (x) => (x == null ? '–' : `${Math.round(x * 100)}%`);
 const fx = (x, d = 1) => (x == null ? '–' : x.toFixed(d));
+// A tappable player name that opens their profile.
+const plink = (name) => `<button type="button" class="pname js-player" data-player="${esc(name)}">${esc(name)}</button>`;
 const dateFmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ, month: 'short', day: 'numeric' });
 const dtFmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 const weekLabel = (k) => `Week of ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(k + 'T00:00:00Z'))}`;
@@ -197,7 +199,7 @@ function renderWeek() {
   const isThis = state.week === S.weekKey(NOW / 1000, TZ);
   const opts = weeks.map((k) => `<option value="${k}" ${k === state.week ? 'selected' : ''}>${k === S.weekKey(NOW / 1000, TZ) ? 'This week' : weekLabel(k)}</option>`).join('');
   $('week').innerHTML = `<div class="week-head"><h2 id="week-h">${isThis ? 'This week' : weekLabel(state.week)} <span class="sub">vs the week before</span></h2>
-      <label><span class="muted" style="font-size:.8rem;margin-right:6px">Week</span><select id="week-pick">${opts}</select></label></div>
+      <div class="week-tools"><button type="button" id="share-week" class="btn-ghost">↗ Share</button><label><span class="muted" style="font-size:.8rem;margin-right:6px">Week</span><select id="week-pick">${opts}</select></label></div></div>
     <div class="kpis">
       <div class="kpi"><div class="label">Matches</div><div class="value num">${cur.n}</div>${deltaHTML(cur.n, prev?.n, { better: 0 })}</div>
       <div class="kpi"><div class="label">Record</div><div class="value num">${cur.w}-${cur.d}-${cur.l}</div><div class="delta">${prev ? `last week ${prev.w}-${prev.d}-${prev.l}` : 'W-D-L'}</div></div>
@@ -220,7 +222,7 @@ function renderAwards() {
   }
   $('awards').innerHTML = `<div class="awards-head"><h2 id="awards-h">🏆 Awards <span class="sub">${state.week ? esc(weekLabel(state.week)) : ''}</span></h2></div>
     ${awards.length ? `<div class="awards">${awards.map((a) => `<div class="award"><div class="icon" aria-hidden="true">${AWARD_ICON[a.key] || '⭐'}</div><div class="title">${esc(a.title)}</div>
-      <div class="who">${a.names.map(esc).join(', ')}${a.names.length > 1 ? ' <span class="muted" style="font-weight:500;font-size:.8rem">(shared)</span>' : ''}</div><div class="val num">${esc(a.value)}</div><div class="blurb">${esc(a.blurb)}</div></div>`).join('')}</div>` : '<p class="empty">No awards this week yet.</p>'}
+      <div class="who">${a.names.map(plink).join(', ')}${a.names.length > 1 ? ' <span class="muted" style="font-weight:500;font-size:.8rem">(shared)</span>' : ''}</div><div class="val num">${esc(a.value)}</div><div class="blurb">${esc(a.blurb)}</div></div>`).join('')}</div>` : '<p class="empty">No awards this week yet.</p>'}
     ${career}`;
 }
 
@@ -256,7 +258,7 @@ const CAREER_COLS = [
 ];
 function cell(key, r) {
   const v = r[key];
-  if (key === 'name') return `<span class="pname">${esc(v)}</span>${r.mainPos || r.favoritePosition ? `<span class="pos">${esc((r.mainPos || r.favoritePosition).slice(0, 3).toUpperCase())}</span>` : ''}`;
+  if (key === 'name') return `${plink(v)}${r.mainPos || r.favoritePosition ? `<span class="pos">${esc((r.mainPos || r.favoritePosition).slice(0, 3).toUpperCase())}</span>` : ''}`;
   if (['passPct', 'tacklePct', 'winPct'].includes(key)) return pct(v);
   if (['passSuccessRate', 'tackleSuccessRate', 'shotSuccessRate', 'winRate'].includes(key)) return v == null ? '–' : `${v}%`;
   if (key === 'rating' || key === 'gaPerGame') return fx(v, 2);
@@ -309,14 +311,14 @@ function renderExtras() {
   const mline = (m) => `${m.gf}–${m.ga} vs ${esc(m.opp.name)}`;
   if (r.bigWin) rec.push(['Biggest win', mline(r.bigWin), dateFmt.format(r.bigWin.ts * 1000)]);
   if (r.bigLoss) rec.push(['Heaviest loss', mline(r.bigLoss), dateFmt.format(r.bigLoss.ts * 1000)]);
-  if (r.bestRating) rec.push(['Best match rating', `${esc(r.bestRating.name)} · ${r.bestRating.rt.toFixed(1)}`, `vs ${esc(r.bestRating.m.opp.name)}`]);
-  if (r.mostScored) rec.push(['Most goals in a match', `${esc(r.mostScored.name)} · ${r.mostScored.g}`, `vs ${esc(r.mostScored.m.opp.name)}`]);
+  if (r.bestRating) rec.push(['Best match rating', `${plink(r.bestRating.name)} · ${r.bestRating.rt.toFixed(1)}`, `vs ${esc(r.bestRating.m.opp.name)}`]);
+  if (r.mostScored) rec.push(['Most goals in a match', `${plink(r.mostScored.name)} · ${r.mostScored.g}`, `vs ${esc(r.mostScored.m.opp.name)}`]);
   rec.push(['Longest win streak', `${r.winStreak.best}`, `current: ${r.winStreak.current}`]);
   rec.push(['Longest unbeaten run', `${r.unbeaten.best}`, `current: ${r.unbeaten.current}`]);
   const recCard = `<div class="card"><h2>📜 Records</h2><ul class="list">${rec.map(([k, v, sub]) => `<li><span><span class="k">${k}</span><br>${v}</span><span class="v k">${sub}</span></li>`).join('')}</ul><p class="note">Forfeits don’t count toward scoreline records.</p></div>`;
 
   const duos = S.partnerships(D.matches, 3).slice(0, 6);
-  const duoCard = `<div class="card"><h2>🤝 Best duos <span class="sub">3+ games together</span></h2>${duos.length ? `<ul class="list">${duos.map((d) => `<li style="display:block"><div style="display:flex;justify-content:space-between;gap:8px"><span><b>${esc(d.a)}</b> + <b>${esc(d.b)}</b></span><span class="v num">${pct(d.winPct)}</span></div><div class="k num">${d.n} games · ${d.w}W ${d.d}D ${d.l}L · ${d.gf}–${d.ga}</div><div class="bar" aria-hidden="true"><i style="width:${Math.round(d.winPct * 100)}%"></i></div></li>`).join('')}</ul>` : '<p class="empty">Needs a few more games together.</p>'}</div>`;
+  const duoCard = `<div class="card"><h2>🤝 Best duos <span class="sub">3+ games together</span></h2>${duos.length ? `<ul class="list">${duos.map((d) => `<li style="display:block"><div style="display:flex;justify-content:space-between;gap:8px"><span>${plink(d.a)} + ${plink(d.b)}</span><span class="v num">${pct(d.winPct)}</span></div><div class="k num">${d.n} games · ${d.w}W ${d.d}D ${d.l}L · ${d.gf}–${d.ga}</div><div class="bar" aria-hidden="true"><i style="width:${Math.round(d.winPct * 100)}%"></i></div></li>`).join('')}</ul>` : '<p class="empty">Needs a few more games together.</p>'}</div>`;
 
   const h2h = S.headToHead(D.matches).slice(0, 8);
   const h2hCard = `<div class="card"><h2>⚔️ Opponents</h2>${h2h.length ? `<ul class="list">${h2h.map((o) => `<li><span><b>${esc(o.name)}</b><br><span class="k">${o.n} meeting${o.n > 1 ? 's' : ''} · last ${esc(dateFmt.format(o.last * 1000))}</span></span><span class="v num">${o.w}W ${o.d}D ${o.l}L<br><span class="k">${o.gf}–${o.ga}</span></span></li>`).join('')}</ul>` : '<p class="empty">No opponents yet.</p>'}</div>`;
@@ -335,8 +337,8 @@ function renderMatches() {
         <span class="tr num">${tr ? tr.toFixed(1) : '–'}<div class="when">rating</div></span></summary>
         <div class="detail"><div class="table-wrap"><table><thead><tr><th>Player</th><th>Rating</th><th>G</th><th>A</th><th>Shots</th><th>Passes</th><th>Tackles</th><th>Mins</th></tr></thead><tbody>
         ${ps.map((p) => p.sec > 0
-          ? `<tr><td><span class="pname">${esc(p.name)}</span>${p.mom ? ' <span class="star" title="Man of the match">★</span>' : ''}<span class="pos">${esc((p.pos || '').slice(0, 3).toUpperCase())}</span></td><td class="num">${p.rt.toFixed(1)}</td><td class="num">${p.g}</td><td class="num">${p.a}</td><td class="num">${p.sh}</td><td class="num">${p.pm}/${p.pa}</td><td class="num">${p.tm}/${p.ta}</td><td class="num">${Math.round(p.sec / 60)}</td></tr>`
-          : `<tr class="dnp"><td>${esc(p.name)}</td><td colspan="7" style="text-align:left">didn’t get on the pitch</td></tr>`).join('')}
+          ? `<tr><td>${plink(p.name)}${p.mom ? ' <span class="star" title="Man of the match">★</span>' : ''}<span class="pos">${esc((p.pos || '').slice(0, 3).toUpperCase())}</span></td><td class="num">${p.rt.toFixed(1)}</td><td class="num">${p.g}</td><td class="num">${p.a}</td><td class="num">${p.sh}</td><td class="num">${p.pm}/${p.pa}</td><td class="num">${p.tm}/${p.ta}</td><td class="num">${Math.round(p.sec / 60)}</td></tr>`
+          : `<tr class="dnp"><td>${plink(p.name)}</td><td colspan="7" style="text-align:left">didn’t get on the pitch</td></tr>`).join('')}
         </tbody></table></div></div></details>`;
     }).join('') || '<p class="empty">No matches tracked yet.</p>'}`;
 }
@@ -348,6 +350,115 @@ function renderFooter() {
     ${first ? `<div>Tracking league matches since ${esc(dateFmt.format(first))}.</div>` : ''}
     <div>Data from EA’s unofficial Pro Clubs endpoints. Not affiliated with or endorsed by EA.</div>`;
 }
+
+/* ---------------- player profile overlay ---------------- */
+// Compact rating sparkline (last N games), with a 5.0–10.0 band.
+function sparkline(series) {
+  if (series.length < 2) return '<p class="empty" style="padding:8px 0">Not enough games yet for a trend.</p>';
+  const W = 320, H = 70, L = 4, R = 4, T = 6, B = 6, iw = W - L - R, ih = H - T - B;
+  const lo = 5, hi = 10;
+  const x = (i) => L + (i / (series.length - 1)) * iw;
+  const y = (v) => T + ih - ((Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * ih;
+  const pts = series.map((d, i) => [x(i), y(d.rating)]);
+  const d = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+  const avg = series.reduce((s, d) => s + d.rating, 0) / series.length;
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Rating over last ${series.length} games, average ${avg.toFixed(1)}">`;
+  s += `<line class="gridline" x1="${L}" x2="${W - R}" y1="${y(avg)}" y2="${y(avg)}" style="stroke-dasharray:3 3"/>`;
+  s += `<path d="${d}" fill="none" stroke="var(--line)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  pts.forEach((p, i) => { const c = series[i].rating >= 7.5 ? 'var(--good)' : series[i].rating < 6 ? '#f07a7a' : 'var(--line)'; s += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.2" fill="${c}" stroke="var(--surface)" stroke-width="1.5"/>`; });
+  s += '</svg>';
+  return s;
+}
+
+function profileHTML(name) {
+  const pr = S.playerProfile(D.matches, D.members, name);
+  const t = pr.tracked, c = pr.career;
+  const stat = (label, val) => `<div class="pstat"><div class="label">${label}</div><div class="value num">${val}</div></div>`;
+  const trackedStats = t
+    ? `<div class="pstats">${stat('Apps', t.apps)}${stat('Goals', t.g)}${stat('Assists', t.a)}${stat('Rating', fx(t.rating, 2))}${stat('Pass %', pct(t.passPct))}${stat('Tackle %', pct(t.tacklePct))}${stat('MOTM', t.mom)}${stat('Win %', pct(t.winPct))}</div>`
+    : '<p class="empty">No tracked league games yet.</p>';
+  const careerStats = c
+    ? `<div class="pstats">${stat('Games', c.gamesPlayed)}${stat('Goals', c.goals)}${stat('Assists', c.assists)}${stat('Rating', fx(c.ratingAve, 1))}${stat('Pass %', c.passSuccessRate + '%')}${stat('Tackle %', c.tackleSuccessRate + '%')}${stat('MOTM', c.manOfTheMatch)}${stat('OVR', c.proOverall)}</div>`
+    : '';
+  const milestones = pr.milestones.length
+    ? `<h3>Milestones</h3><ul class="list">${pr.milestones.map((m) => `<li style="display:block"><div style="display:flex;justify-content:space-between"><span class="k">${m.label}</span><span class="v num">${m.value} / ${m.target}</span></div><div class="bar"><i style="width:${Math.round((m.value / m.target) * 100)}%"></i></div><div class="k num" style="margin-top:3px">${m.toGo} to go</div></li>`).join('')}</ul>`
+    : '';
+  const best = pr.best.length
+    ? `<h3>Best games</h3><ul class="list">${pr.best.map((b) => `<li><span><b class="num">${b.rating.toFixed(1)}</b> <span class="k">vs ${esc(b.opp)} (${b.gf}–${b.ga})</span></span><span class="v k">${b.g}G ${b.a}A${b.mom ? ' ★' : ''} · ${esc(dateFmt.format(b.ts * 1000))}</span></li>`).join('')}</ul>`
+    : '';
+  const partners = pr.partners.length
+    ? `<h3>Plays best with</h3><ul class="list">${pr.partners.map((p) => `<li><span>${plink(p.name)}</span><span class="v num">${pct(p.winPct)} <span class="k">${p.n} gm</span></span></li>`).join('')}</ul>`
+    : '';
+  return `<div class="sheet-head"><div><h2 style="margin:0">${esc(name)}</h2>${pr.favoritePosition ? `<div class="muted" style="font-size:.85rem">${esc(pr.favoritePosition)}</div>` : ''}</div><button class="x" data-close aria-label="Close">✕</button></div>
+    <div class="sheet-body">
+      <h3>Rating — last ${pr.ratingSeries.length} tracked</h3>${sparkline(pr.ratingSeries)}
+      <h3>Tracked league matches</h3>${trackedStats}
+      ${c ? '<h3>Career (EA totals)</h3>' + careerStats : ''}
+      ${milestones}${best}${partners}
+    </div>`;
+}
+
+/* ---------------- weekly recap sheet ---------------- */
+function recapHTML() {
+  const weeks = [...D.byWeek.keys()].sort().reverse();
+  const wk = state.week && D.byWeek.has(state.week) ? state.week : weeks[0];
+  const label = wk === S.weekKey(NOW / 1000, TZ) ? 'This week' : weekLabel(wk);
+  const prev = D.byWeek.get(S.addDays(wk || '', -7)) || [];
+  const text = S.weeklyRecap(D.byWeek.get(wk) || [], { clubName: cfg.clubName || D.club?.name || 'Madras FC', weekLabel: label, prevMatches: prev });
+  return `<div class="sheet-head"><h2 style="margin:0">Share ${esc(label.toLowerCase())}</h2><button class="x" data-close aria-label="Close">✕</button></div>
+    <div class="sheet-body"><p class="muted" style="font-size:.85rem;margin-top:0">Copy this into your group chat.</p>
+      <textarea id="recap-text" readonly rows="${Math.min(16, text.split('\n').length + 1)}">${esc(text)}</textarea>
+      <div class="sheet-actions"><button class="btn-primary" id="recap-copy">Copy text</button></div>
+      <p class="k" id="recap-done" style="text-align:center;min-height:16px"></p>
+    </div>`;
+}
+
+const modal = $('modal');
+function openSheet(html, hash) {
+  modal.innerHTML = `<div class="backdrop" data-close></div><div class="sheet" role="dialog" aria-modal="true">${html}</div>`;
+  modal.hidden = false;
+  document.body.style.overflow = 'hidden';
+  if (hash && location.hash !== hash) history.pushState({ sheet: 1 }, '', hash);
+}
+function closeSheet(fromPop) {
+  if (modal.hidden) return;
+  modal.hidden = true;
+  modal.innerHTML = '';
+  document.body.style.overflow = '';
+  if (!fromPop && location.hash) history.pushState({}, '', location.pathname + location.search);
+}
+function openProfile(name) { openSheet(profileHTML(name), '#p=' + encodeURIComponent(name)); }
+function openRecap() {
+  openSheet(recapHTML(), '#recap');
+  const btn = $('recap-copy');
+  btn?.addEventListener('click', async () => {
+    const txt = $('recap-text').value;
+    try {
+      await navigator.clipboard.writeText(txt);
+      $('recap-done').textContent = 'Copied ✓';
+    } catch {
+      const ta = $('recap-text'); ta.focus(); ta.select();
+      $('recap-done').textContent = document.execCommand?.('copy') ? 'Copied ✓' : 'Select the text above and copy manually.';
+    }
+  });
+}
+
+// One delegated click handler for the whole page.
+document.addEventListener('click', (e) => {
+  const pl = e.target.closest('.js-player');
+  if (pl) { e.preventDefault(); openProfile(pl.dataset.player); return; }
+  if (e.target.closest('[data-close]')) { closeSheet(); return; }
+  if (e.target.closest('#share-week')) { openRecap(); return; }
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
+// Back button / deep links open or close the sheet.
+function syncFromHash(fromPop) {
+  const h = decodeURIComponent(location.hash);
+  if (h.startsWith('#p=')) openSheet(profileHTML(h.slice(3)), null);
+  else if (h === '#recap') openRecap();
+  else closeSheet(fromPop);
+}
+window.addEventListener('popstate', () => syncFromHash(true));
 
 /* ---------------- boot ---------------- */
 async function main() {
@@ -377,5 +488,6 @@ async function main() {
     return;
   }
   renderHero(); renderBanner(); renderWeek(); renderAwards(); renderCharts(); renderPlayers(); renderDefence(); renderExtras(); renderMatches(); renderFooter();
+  syncFromHash();
 }
 main();

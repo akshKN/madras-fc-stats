@@ -205,3 +205,64 @@ export function careerDeltas(newer, older) {
     })
     .filter((d) => d && d.games > 0);
 }
+
+/** A single player's involvement across matches, newest first, played games only. */
+export function playerMatches(matches, name) {
+  const out = [];
+  for (const m of matches) {
+    const p = m.players.find((x) => x.name === name && x.sec > 0);
+    if (p) out.push({ m, p });
+  }
+  return out.sort((a, b) => b.m.ts - a.m.ts);
+}
+
+const MILESTONES = {
+  goals: (v) => (v < 10 ? 10 : v < 25 ? 25 : Math.ceil((v + 1) / 25) * 25),
+  assists: (v) => (v < 10 ? 10 : v < 25 ? 25 : Math.ceil((v + 1) / 25) * 25),
+  gamesPlayed: (v) => (v < 50 ? 50 : Math.ceil((v + 1) / 50) * 50),
+  manOfTheMatch: (v) => (v < 10 ? 10 : Math.ceil((v + 1) / 10) * 10),
+};
+
+/** Profile for one player: tracked totals, EA career totals, rating series, partners, milestones. */
+export function playerProfile(matches, members, name) {
+  const mine = playerMatches(matches, name);
+  const tracked = playerTable(matches).find((r) => r.name === name) || null;
+  const career = (members || []).find((m) => m.name === name) || null;
+  const ratingSeries = [...mine].reverse().map(({ m, p }) => ({ ts: m.ts, rating: p.rt, opp: m.opp.name, result: m.result }));
+  const best = [...mine].sort((a, b) => b.p.rt - a.p.rt).slice(0, 3).map(({ m, p }) => ({ rating: p.rt, opp: m.opp.name, gf: m.gf, ga: m.ga, g: p.g, a: p.a, ts: m.ts, mom: p.mom }));
+  const partners = partnerships(matches, 2)
+    .filter((d) => d.a === name || d.b === name)
+    .map((d) => ({ name: d.a === name ? d.b : d.a, n: d.n, winPct: d.winPct, w: d.w, d: d.d, l: d.l }))
+    .slice(0, 5);
+  const milestones = [];
+  if (career) {
+    for (const [key, label] of [['goals', 'goals'], ['assists', 'assists'], ['gamesPlayed', 'games'], ['manOfTheMatch', 'MOTM awards']]) {
+      const v = Number(career[key]);
+      if (!Number.isFinite(v)) continue;
+      const target = MILESTONES[key](v);
+      milestones.push({ key, label, value: v, target, toGo: target - v });
+    }
+  }
+  return { name, tracked, career, ratingSeries, best, partners, milestones, favoritePosition: career?.favoritePosition };
+}
+
+/** Plain-text weekly recap for pasting into a group chat. */
+export function weeklyRecap(weekMatches, { clubName = 'Madras FC', weekLabel = 'This week', prevMatches = [] } = {}) {
+  if (!weekMatches.length) return `${clubName} — ${weekLabel}\nNo matches played.`;
+  const s = summarize(weekMatches);
+  const awards = weeklyAwards(weekMatches, prevMatches);
+  const lines = [];
+  lines.push(`⚽ ${clubName} — ${weekLabel}`);
+  lines.push(`${s.w}W ${s.d}D ${s.l}L · ${s.gf}-${s.ga} · ${Math.round((s.winPct || 0) * 100)}% win rate`);
+  const chrono = [...weekMatches].sort((a, b) => a.ts - b.ts);
+  lines.push('');
+  for (const m of chrono) {
+    const icon = m.result === 'W' ? '✅' : m.result === 'L' ? '❌' : '➖';
+    lines.push(`${icon} ${m.gf}-${m.ga} ${m.opp.name}${m.dnf === 'them' ? ' (forfeit)' : ''}`);
+  }
+  if (awards.length) {
+    lines.push('');
+    lines.push('🏆 ' + awards.map((a) => `${a.title}: ${a.names.join(' & ')} (${a.value})`).join('\n🏆 '));
+  }
+  return lines.join('\n');
+}
