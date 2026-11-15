@@ -266,3 +266,14 @@ export function weeklyRecap(weekMatches, { clubName = 'Madras FC', weekLabel = '
   }
   return lines.join('\n');
 }
+
+/**
+ * EA's API numbers divisions one higher than the game shows:
+ * API 1 = Elite, API 2 = Division 1 … API 6 = Division 5 (where new clubs start).
+ * Verified against the in-game Season screen (API 3 shown as "Division 2").
+ */
+export function divisionLabel(apiDivision) {
+  const n = Number(apiDivision);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return n === 1 ? 'Elite Division' : `Division ${n - 1}`;
+}

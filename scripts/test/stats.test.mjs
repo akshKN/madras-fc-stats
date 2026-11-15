@@ -91,3 +91,12 @@ test('weekly recap text has results and awards', async () => {
   assert.match(txt, /Golden Boot: naveenboltz/);
   assert.match(txt, /church soccer \(forfeit\)/);
 });
+
+test('EA division numbers map to the in-game division', async () => {
+  const { divisionLabel } = await import('../../site/stats.js');
+  assert.equal(divisionLabel(3), 'Division 2'); // Madras FC: API 3, game shows Division 2
+  assert.equal(divisionLabel('6'), 'Division 5'); // where new clubs start
+  assert.equal(divisionLabel(1), 'Elite Division');
+  assert.equal(divisionLabel(0), null);
+  assert.equal(divisionLabel(undefined), null);
+});

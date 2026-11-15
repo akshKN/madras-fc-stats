@@ -236,7 +236,7 @@ function footerHTML() {
 function renderTopbar() {
   const c = D.club || {};
   const o = c.overall || {};
-  const sub = [c.currentDivision ? `Division ${c.currentDivision}` : '', o.skillRating ? `Skill ${o.skillRating}` : ''].filter(Boolean).join(' · ');
+  const sub = [S.divisionLabel(c.currentDivision) || '', o.skillRating ? `Skill ${o.skillRating}` : ''].filter(Boolean).join(' · ');
   $('topbar').innerHTML = `<div class="brand"><div class="crest" aria-hidden="true">MFC</div>
     <div><div class="brand-name">${esc(cfg.clubName || c.name || 'Madras FC')}</div>${sub ? `<div class="brand-sub">${esc(sub)}</div>` : ''}</div></div>
     <button type="button" class="icon-btn press" id="open-theme" aria-label="Change club colours">
@@ -324,7 +324,7 @@ function viewHome() {
   const se = D.club?.season;
   if (se?.wins != null) {
     const total = se.wins + se.ties + se.losses || 1;
-    out.push(`<section class="card pad rise" style="animation-delay:240ms"><div class="card-head"><h2>Season</h2><span class="muted small">${se.games} games · Division ${D.club.currentDivision ?? '–'}</span></div>
+    out.push(`<section class="card pad rise" style="animation-delay:240ms"><div class="card-head"><h2>Season</h2><span class="muted small">${se.games} games${S.divisionLabel(D.club.currentDivision) ? ` · ${S.divisionLabel(D.club.currentDivision)}` : ''}</span></div>
       <div class="seasonbar" role="img" aria-label="${se.wins} won, ${se.ties} drawn, ${se.losses} lost">
         <i class="grow" style="width:${(se.wins / total) * 100}%;background:var(--good)"></i><i class="grow" style="width:${(se.ties / total) * 100}%;background:var(--warn);animation-delay:80ms"></i><i class="grow" style="width:${(se.losses / total) * 100}%;background:var(--bad);animation-delay:160ms"></i></div>
       <div class="legend-row"><span><b>${se.wins}</b> won</span><span><b>${se.ties}</b> drawn</span><span><b>${se.losses}</b> lost</span>${D.club.overall?.wins != null ? `<span class="muted">all-time ${D.club.overall.wins}-${D.club.overall.ties}-${D.club.overall.losses}</span>` : ''}</div></section>`);
