@@ -190,9 +190,9 @@ function wireCharts(root) {
 
 
 /* ---------------- rating sparkline ---------------- */
-function sparkline(series) {
+function sparkline(series, H0 = 70) {
   if (series.length < 2) return '<p class="empty" style="padding:8px 0">Not enough games yet for a trend.</p>';
-  const W = 320, H = 70, L = 4, R = 4, T = 6, B = 6, iw = W - L - R, ih = H - T - B;
+  const W = 320, H = H0, L = 4, R = 4, T = 6, B = 6, iw = W - L - R, ih = H - T - B;
   const lo = 5, hi = 10;
   const x = (i) => L + (i / (series.length - 1)) * iw;
   const y = (v) => T + ih - ((Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * ih;
@@ -480,27 +480,42 @@ function viewProfile(name) {
   const c = CLUBS[club || 'madras'];
   const t = pr.tracked, k = pr.career;
   const isMe = state.me === name;
-  const tile = (label, val, sub = '') => `<div class="tile"><div class="label">${label}</div><div class="big num">${val}</div>${sub ? `<div class="delta">${sub}</div>` : ''}</div>`;
+  const cellm = (label, val) => `<div class="cellm"><div class="l">${label}</div><div class="v num">${val}</div></div>`;
   const series = pr.ratingSeries;
   const avg = series.length ? series.reduce((s, d) => s + d.rating, 0) / series.length : null;
+  const today = dateFmt.format(NOW);
+
+  // The card always wears the player's own club colours, whoever is viewing it.
+  const pt = THEMES[club || 'madras'];
+  const cardVars = `--surface:${pt.surface};--surface-2:${pt.surface2};--border:${pt.border};--text:${pt.text};--muted:${pt.muted};--accent:${pt.accent};--on-accent:${pt.onAccent};--accent-text:${pt.accentText};--line:${pt.accentText};background:${pt.surface};color:${pt.text};border-color:${pt.border}`;
+  const card = `<article class="card pcard rise" style="${cardVars}" aria-label="${esc(name)} player card">
+    <div class="pstripe" style="background:repeating-linear-gradient(115deg, ${c.c1} 0 14px, ${c.c2} 14px 28px)" aria-hidden="true"></div>
+    <div class="pcard-head">${badge(name, 46)}
+      <div class="min0 grow1"><div class="profile-name">${esc(name)}${isMe ? ' <span class="you">You</span>' : ''}</div>
+        <div class="muted small">${esc(pr.favoritePosition || '')}${club ? ` · ${esc(c.label)} fan` : ''}</div></div>
+      ${k?.proOverall ? `<div class="ovr"><b class="num">${k.proOverall}</b><span>OVR</span></div>` : ''}
+    </div>
+    ${t ? `<div class="pcard-sec"><div class="mini-h"><span>Tracked league</span><span>${t.apps} app${t.apps === 1 ? '' : 's'}</span></div>
+      <div class="mini-grid">${cellm('Rating', fx(t.rating, 2))}${cellm('Goals', t.g)}${cellm('Assists', t.a)}${cellm('MOTM', t.mom)}
+      ${cellm('Pass', pct(t.passPct))}${cellm('Tackle', pct(t.tacklePct))}${cellm('Shots', t.sh)}${cellm('Win', pct(t.winPct))}</div></div>` : ''}
+    ${series.length >= 2 ? `<div class="pcard-sec"><div class="mini-h"><span>Match rating</span><span>last ${series.length} · avg ${avg.toFixed(2)}</span></div>${sparkline(series, 40)}</div>` : ''}
+    ${k ? `<div class="pcard-sec"><div class="mini-h"><span>Career · EA totals</span><span>${k.gamesPlayed} games</span></div>
+      <div class="mini-grid">${cellm('Rating', fx(k.ratingAve, 1))}${cellm('Goals', k.goals)}${cellm('Assists', k.assists)}${cellm('MOTM', k.manOfTheMatch)}
+      ${cellm('Pass', k.passSuccessRate != null ? k.passSuccessRate + '%' : '–')}${cellm('Tackle', k.tackleSuccessRate != null ? k.tackleSuccessRate + '%' : '–')}${cellm('Shot', k.shotSuccessRate != null ? k.shotSuccessRate + '%' : '–')}${cellm('Win', k.winRate != null ? k.winRate + '%' : '–')}</div></div>` : ''}
+    ${pr.milestones.length ? `<div class="pcard-sec"><div class="mini-h"><span>Next milestones</span></div><div class="ms-grid">${pr.milestones.map((m) => `<div class="ms"><div class="row-between"><span class="cap">${m.label}</span><span class="num"><b>${m.value}</b><span class="muted">/${m.target}</span></span></div><div class="bar thin"><i class="grow" style="width:${Math.max(2, Math.round((m.value / m.target) * 100))}%"></i></div></div>`).join('')}</div></div>` : ''}
+    <div class="pcard-foot"><span>Madras FC · EA FC 27 Pro Clubs</span><span>${esc(today)}</span></div>
+  </article>`;
+
+  const extras = [];
+  if (pr.best.length) extras.push(`<section class="card pad rise"><div class="card-head"><h2>Best games</h2></div><ul class="list">${pr.best.map((b) => `<li><span><b class="num">${b.rating.toFixed(1)}</b> <span class="k">vs ${esc(b.opp)} (${b.gf}–${b.ga})</span></span><span class="v k">${b.g}G ${b.a}A${b.mom ? ' ★' : ''} · ${esc(dateFmt.format(b.ts * 1000))}</span></li>`).join('')}</ul></section>`);
+  if (pr.partners.length) extras.push(`<section class="card pad rise"><div class="card-head"><h2>Plays best with</h2></div><ul class="list">${pr.partners.map((p) => `<li><span>${plink(p.name)}</span><span class="v num">${pct(p.winPct)} <span class="k">${p.n} gm</span></span></li>`).join('')}</ul></section>`);
+
   return `<div class="profile-nav">
       <a class="link-muted" href="#squad">‹ Squad</a>
       ${isMe ? '<button type="button" class="link-muted" id="switch-me">Not you? Switch</button>' : state.me ? '<a class="link-accent" href="#profile">My profile ›</a>' : ''}
     </div>
-    <article class="card profile-hero rise">
-      <div class="pstripe" style="background:repeating-linear-gradient(115deg, ${c.c1} 0 16px, ${c.c2} 16px 32px)" aria-hidden="true"></div>
-      <div class="profile-id">${badge(name, 72)}
-        <div class="min0"><div class="profile-name">${esc(name)}${isMe ? ' <span class="you">You</span>' : ''}</div>
-        <div class="muted small">${esc(pr.favoritePosition || '')}${k?.proOverall ? ` · OVR ${k.proOverall}` : ''}${club ? ` · Supports ${esc(c.label)}` : ''}</div></div></div>
-    </article>
-    <section class="card pad rise" style="animation-delay:60ms"><div class="card-head"><h2>Match rating</h2><span class="muted small">${series.length >= 2 ? `last ${series.length} · avg ${avg.toFixed(2)}` : ''}</span></div>${sparkline(series)}</section>
-    ${t ? `<section class="rise" style="animation-delay:120ms">${section('Tracked league matches')}<div class="tiles">
-      ${tile('Apps', t.apps)}${tile('Rating', fx(t.rating, 2))}${tile('Goals', t.g)}${tile('Assists', t.a)}${tile('Pass %', pct(t.passPct))}${tile('Tackle %', pct(t.tacklePct))}${tile('MOTM', t.mom)}${tile('Win %', pct(t.winPct))}</div></section>` : ''}
-    ${k ? `<section class="rise" style="animation-delay:180ms">${section('Career', 'EA totals')}<div class="tiles">
-      ${tile('Games', k.gamesPlayed)}${tile('Rating', fx(k.ratingAve, 1))}${tile('Goals', k.goals)}${tile('Assists', k.assists)}${tile('Pass %', k.passSuccessRate != null ? k.passSuccessRate + '%' : '–')}${tile('Tackle %', k.tackleSuccessRate != null ? k.tackleSuccessRate + '%' : '–')}${tile('MOTM', k.manOfTheMatch)}${tile('OVR', k.proOverall)}</div></section>` : ''}
-    ${pr.milestones.length ? `<section class="card pad rise"><div class="card-head"><h2>Next milestones</h2></div><ul class="list">${pr.milestones.map((m) => `<li class="block"><div class="row-between"><span class="k cap">${m.label}</span><span class="v num">${m.value} / ${m.target}</span></div><div class="bar"><i class="grow" style="width:${Math.max(2, Math.round((m.value / m.target) * 100))}%"></i></div><div class="k num" style="margin-top:4px">${m.toGo} to go</div></li>`).join('')}</ul></section>` : ''}
-    ${pr.best.length ? `<section class="card pad rise"><div class="card-head"><h2>Best games</h2></div><ul class="list">${pr.best.map((b) => `<li><span><b class="num">${b.rating.toFixed(1)}</b> <span class="k">vs ${esc(b.opp)} (${b.gf}–${b.ga})</span></span><span class="v k">${b.g}G ${b.a}A${b.mom ? ' ★' : ''} · ${esc(dateFmt.format(b.ts * 1000))}</span></li>`).join('')}</ul></section>` : ''}
-    ${pr.partners.length ? `<section class="card pad rise"><div class="card-head"><h2>Plays best with</h2></div><ul class="list">${pr.partners.map((p) => `<li><span>${plink(p.name)}</span><span class="v num">${pct(p.winPct)} <span class="k">${p.n} gm</span></span></li>`).join('')}</ul></section>` : ''}
+    ${card}
+    ${extras.join('')}
     ${footerHTML()}`;
 }
 
