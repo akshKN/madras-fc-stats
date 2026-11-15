@@ -33,8 +33,13 @@ export function rawLeague() {
 
 export const rawMembers = () => JSON.parse(readFileSync(path.join(dir, 'members.json'), 'utf8'));
 export const rawOverall = () => JSON.parse(readFileSync(path.join(dir, 'overall.json'), 'utf8'));
+// Real responses: the all-time entry is stale (Div 8), the current-season one is right (Div 3).
 export const rawSearch = () => [
   { clubId: CLUB, currentDivision: '8', clubInfo: { name: 'MADRAS  FC' } },
+];
+export const rawSeasonSearch = () => [
+  { clubId: CLUB, currentDivision: '3', bestDivision: '3', wins: '43', ties: '15', losses: '39', points: '40', gamesPlayed: '97',
+    goals: '243', goalsAgainst: '227', promotions: '3', relegations: '0', clubInfo: { name: 'MADRAS  FC' } },
 ];
 
 export const config = {
@@ -58,5 +63,6 @@ export function fakeFetchers({ league = rawLeague(), playoff = [], fail = {} } =
     members: maybe('members', rawMembers),
     overall: maybe('overall', rawOverall),
     search: maybe('search', rawSearch),
+    seasonSearch: maybe('seasonSearch', rawSeasonSearch),
   };
 }

@@ -35,7 +35,9 @@ test('first run saves all 10 matches and every data file', async () => {
   assert.equal(res.newMatches, 10);
   assert.equal((await read(d, 'matches.json')).length, 10);
   assert.equal((await read(d, 'members.json')).length, 9);
-  assert.equal((await read(d, 'club.json')).currentDivision, 8);
+  const club = await read(d, 'club.json');
+  assert.equal(club.currentDivision, 3, 'uses the current-season division, not the stale all-time one');
+  assert.deepEqual([club.season.wins, club.season.ties, club.season.losses, club.season.points], [43, 15, 39, 40]);
   assert.deepEqual(await read(d, 'snapshots/index.json'), ['2026-11-14']);
   const st = await read(d, 'status.json');
   assert.equal(st.ok, true);
@@ -84,6 +86,7 @@ test('warns if the club ID no longer matches the club name', async () => {
   const d = await tmp();
   const f = fakeFetchers();
   f.search = async () => [{ clubId: '999', currentDivision: '3', clubInfo: { name: 'MADRAS  FC' } }];
+  f.seasonSearch = async () => [{ clubId: '999', currentDivision: '3', clubInfo: { name: 'MADRAS  FC' } }];
   const res = await run({ config, dataDir: d, fetchers: f, log: quiet });
   assert.ok(res.warnings.some((w) => w.includes('Club ID not found')));
 });
@@ -104,4 +107,12 @@ test('eaGet gives up immediately on a 400 (bad request, not worth retrying)', as
   const transportList = [{ name: 'a', fetch: async () => { calls++; return new Response('bad', { status: 400 }); } }];
   await assert.rejects(eaGet('x', {}, { transportList, sleep: async () => {} }), /HTTP 400/);
   assert.equal(calls, 1);
+});
+
+test('falls back to the all-time division if the season leaderboard is unavailable', async () => {
+  const d = await tmp();
+  await run({ config, dataDir: d, fetchers: fakeFetchers({ fail: { seasonSearch: true } }), log: quiet });
+  const club = await read(d, 'club.json');
+  assert.equal(club.currentDivision, 8);
+  assert.equal(club.season, null);
 });

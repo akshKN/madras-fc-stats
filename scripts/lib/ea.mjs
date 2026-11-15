@@ -83,6 +83,8 @@ export async function eaGet(path, params, { retries = 4, sleep = defaultSleep, t
 
 export const endpoints = {
   search: (platform, clubName, opts) => eaGet('allTimeLeaderboard/search', { platform, clubName }, opts),
+  // The all-time leaderboard's division can be stale; the current-season one is up to date.
+  seasonSearch: (platform, clubName, opts) => eaGet('currentSeasonLeaderboard/search', { platform, clubName }, opts),
   info: (platform, clubId, opts) => eaGet('clubs/info', { platform, clubIds: clubId }, opts),
   overall: (platform, clubId, opts) => eaGet('clubs/overallStats', { platform, clubIds: clubId }, opts),
   members: (platform, clubId, opts) => eaGet('members/stats', { platform, clubId }, opts),

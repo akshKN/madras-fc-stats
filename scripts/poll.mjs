@@ -34,6 +34,7 @@ function realFetchers(log) {
     members: (c) => endpoints.members(c.platform, c.clubId, opts),
     overall: (c) => endpoints.overall(c.platform, c.clubId, opts),
     search: (c) => endpoints.search(c.platform, c.clubName.trim(), opts),
+    seasonSearch: (c) => endpoints.seasonSearch(c.platform, c.clubName.trim(), opts),
   };
 }
 
@@ -93,18 +94,33 @@ export async function run({ config, dataDir, fetchers, now = Date.now(), log = c
 
   // 3. Club totals + current division, and a sanity check that the club ID still matches the name
   try {
-    const [overallRaw, search] = await Promise.all([
+    const [overallRaw, search, seasonSearch] = await Promise.all([
       fetchers.overall(config),
       fetchers.search(config).catch(() => null),
+      (fetchers.seasonSearch ? fetchers.seasonSearch(config) : Promise.resolve(null)).catch(() => null),
     ]);
     const overall = Array.isArray(overallRaw) ? overallRaw[0] : null;
     if (!overall) throw new Error('no overall stats returned');
-    const hit = Array.isArray(search) ? search.find((c) => String(c.clubId) === String(config.clubId)) : null;
-    if (Array.isArray(search) && !hit) warnings.push('Club ID not found when searching by club name — the name or ID may have changed');
+    const find = (list) => (Array.isArray(list) ? list.find((c) => String(c.clubId) === String(config.clubId)) : null);
+    const hit = find(search);
+    const seasonHit = find(seasonSearch);
+    if (Array.isArray(search) && Array.isArray(seasonSearch) && !hit && !seasonHit) {
+      warnings.push('Club ID not found when searching by club name — the name or ID may have changed');
+    }
+    const n = (v) => (v == null || v === '' ? null : Number(v));
     const club = {
       clubId: config.clubId,
-      name: hit?.clubInfo?.name ?? config.clubName,
-      currentDivision: hit ? Number(hit.currentDivision) : null,
+      name: seasonHit?.clubInfo?.name ?? hit?.clubInfo?.name ?? config.clubName,
+      // Prefer the current-season leaderboard; the all-time one can be stale.
+      currentDivision: n(seasonHit?.currentDivision) ?? n(hit?.currentDivision),
+      season: seasonHit
+        ? {
+            division: n(seasonHit.currentDivision), bestDivision: n(seasonHit.bestDivision),
+            wins: n(seasonHit.wins), ties: n(seasonHit.ties), losses: n(seasonHit.losses),
+            points: n(seasonHit.points), games: n(seasonHit.gamesPlayed), goals: n(seasonHit.goals),
+            goalsAgainst: n(seasonHit.goalsAgainst), promotions: n(seasonHit.promotions), relegations: n(seasonHit.relegations),
+          }
+        : null,
       overall: Object.fromEntries(Object.entries(overall).filter(([k]) => !/^last(Match|Opponent)\d/.test(k))),
     };
     if (await writeIfChanged(f('club.json'), club)) changed = true;
