@@ -5,12 +5,12 @@
  "season": {
   "division": 3,
   "bestDivision": 3,
-  "wins": 45,
+  "wins": 46,
   "ties": 15,
   "losses": 39,
   "points": 44,
-  "games": 99,
-  "goals": 251,
+  "games": 100,
+  "goals": 254,
   "goalsAgainst": 228,
   "promotions": 3,
   "relegations": 0
@@ -25,19 +25,19 @@
   "finishesInDivision4Group1": "0",
   "finishesInDivision5Group1": "0",
   "finishesInDivision6Group1": "0",
-  "gamesPlayed": "195",
+  "gamesPlayed": "196",
   "gamesPlayedPlayoff": "11",
-  "goals": "473",
+  "goals": "476",
   "goalsAgainst": "459",
   "promotions": "6",
   "relegations": "1",
   "losses": "81",
   "ties": "27",
-  "wins": "87",
-  "wstreak": "2",
-  "unbeatenstreak": "2",
-  "skillRating": "1557",
+  "wins": "88",
+  "wstreak": "3",
+  "unbeatenstreak": "3",
+  "skillRating": "1578",
   "reputationtier": "1",
-  "leagueAppearances": "184"
+  "leagueAppearances": "185"
  }
 }
