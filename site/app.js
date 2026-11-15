@@ -149,7 +149,7 @@ function renderHero() {
   const se = c.season;
   const chips = [
     c.currentDivision ? `<span class="chip">Division <b>${c.currentDivision}</b></span>` : '',
-    se?.wins != null ? `<span class="chip">This season <b>${se.wins}W ${se.ties}D ${se.losses}L</b> · <b>${se.points}</b> pts</span>` : '',
+    se?.wins != null ? `<span class="chip">This season <b>${se.wins}W ${se.ties}D ${se.losses}L</b></span>` : '',
     o.skillRating ? `<span class="chip">Skill rating <b>${esc(o.skillRating)}</b></span>` : '',
     o.wins != null ? `<span class="chip">All-time <b>${o.wins}W ${o.ties}D ${o.losses}L</b></span>` : '',
     o.goals != null ? `<span class="chip">Goals <b>${o.goals}</b> for · <b>${o.goalsAgainst}</b> against</span>` : '',
