@@ -29,6 +29,17 @@ Commit and push.
 
 That's it — the site updates itself.
 
+
+## Player badges (club colours)
+Each player's badge comes from **`players.json`** in the repo root:
+```json
+{ "AkshKN": "barca", "naveenboltz": "arsenal" }
+```
+Clubs: `madras`, `barca`, `arsenal`, `united`, `real`, `liverpool`, `chelsea`, `city` (names like "Barcelona" or "Man Utd" also work).
+Edit it on GitHub (open the file → pencil icon → commit). It's read live, so **no Netlify deploy and no credits** — the site picks it up within ~5 minutes.
+
+Everyone's own colour theme and "who are you" choice are saved on their own phone (no login).
+
 ## Cost
 $0. Netlify only redeploys when files in `site/` change (each production deploy costs 15 of your 300 monthly credits, shared with your other site). Match updates cost nothing.
 
