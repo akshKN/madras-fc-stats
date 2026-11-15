@@ -1,7 +1,20 @@
 {
  "clubId": "830697",
  "name": "MADRAS  FC",
- "currentDivision": 8,
+ "currentDivision": 3,
+ "season": {
+  "division": 3,
+  "bestDivision": 3,
+  "wins": 43,
+  "ties": 15,
+  "losses": 39,
+  "points": 40,
+  "games": 97,
+  "goals": 243,
+  "goalsAgainst": 227,
+  "promotions": 3,
+  "relegations": 0
+ },
  "overall": {
   "clubId": "830697",
   "bestDivision": "4",
