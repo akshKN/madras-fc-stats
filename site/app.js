@@ -929,7 +929,9 @@ const go = (hash) => {
 };
 
 document.addEventListener('click', (e) => {
-  const el = (sel) => e.target.closest(sel);
+  // Never match <html>/<body>: a host page or browser extension can put attributes like data-theme on them,
+  // which would otherwise swallow every tap.
+  const el = (sel) => { const m = e.target.closest?.(sel); return m && m !== document.documentElement && m !== document.body ? m : null; };
   if (el('[data-close]')) { closeSheet(); return; }
   const nav = el('a[href^="#"]');
   if (nav) { e.preventDefault(); closeSheet(); go(nav.getAttribute('href').slice(1) || 'home'); return; }
