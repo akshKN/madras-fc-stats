@@ -295,3 +295,14 @@ details.adv[open] .chev { transform: rotate(90deg); }
 .dirbar .f { background: var(--accent-text); } .dirbar .s { background: var(--muted); } .dirbar .b { background: var(--border); }
 .dirlegend { flex-basis: 100%; display: flex; gap: 12px; font-size: .74rem; color: var(--muted); }
 .warnnote { color: var(--warn); }
+
+/* polish: single-row view switch, scroll hint, own-row highlight, rank */
+.segs.scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -16px; padding-right: 16px; }
+.segs.scroll::-webkit-scrollbar { display: none; }
+.segs.scroll .seg { flex: none; white-space: nowrap; }
+.tw { position: relative; }
+.tw::after { content: ''; position: absolute; top: 0; right: -16px; bottom: 0; width: 36px; pointer-events: none; background: linear-gradient(90deg, transparent, var(--surface)); opacity: 1; transition: opacity .2s; }
+.tw.end::after { opacity: 0; }
+tr.me td { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+tr.me td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.rank { color: var(--accent-text); font-weight: 700; margin-left: 4px; }

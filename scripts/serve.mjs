@@ -9,6 +9,6 @@ createServer(async (req, res) => {
   if (p.endsWith('/')) p += 'index.html';
   const file = path.join(root, p);
   if (!file.startsWith(root)) { res.writeHead(403).end(); return; }
-  try { res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream' }).end(await readFile(file)); }
+  try { const body = await readFile(file); res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream' }).end(body); }
   catch { res.writeHead(404).end('not found'); }
 }).listen(process.env.PORT || 8080, () => console.log('serving on', process.env.PORT || 8080));

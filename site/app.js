@@ -409,7 +409,7 @@ const VIEWS = {
 };
 const srcOf = (view, key) => (VIEWS[view].adv ? E.SOURCE[key] || 'ea' : 'ea');
 const srcMark = (tier) => (tier === 'decoded' ? '<sup class="src-mark d" aria-label="decoded">D</sup>' : tier === 'unverified' ? '<sup class="src-mark u" aria-label="unverified">?</sup>' : '');
-const srcTag = (tier) => `<span class="src-tag ${tier}">${E.SOURCE_INFO[tier]?.label || 'EA'}</span>`;
+const srcTag = (tier) => (tier === 'ea' || !tier ? '' : `<span class="src-tag ${tier}">${E.SOURCE_INFO[tier]?.label || 'EA'}</span>`);
 
 function fmtVal(v, fmt) {
   if (v == null || Number.isNaN(v)) return '–';
@@ -466,7 +466,7 @@ function viewSquad() {
     return dir * ((va ?? -Infinity) - (vb ?? -Infinity));
   });
   const th = cols.map(([k, label]) => `<th scope="col" ${k === validKey ? `aria-sort="${dir < 0 ? 'descending' : 'ascending'}"` : ''}><button type="button" data-sort="${k}">${label}${srcMark(srcOf(view, k))}${k === validKey ? (dir < 0 ? ' ↓' : ' ↑') : ''}</button></th>`).join('');
-  const body = sorted.map((r) => `<tr class="${small(r) ? 'faint' : ''}">${cols.map(([k, , f]) => `<td class="num">${k === 'name' ? nameCell(r) : fmtVal(r[k], f)}</td>`).join('')}</tr>`).join('');
+  const body = sorted.map((r) => `<tr class="${small(r) ? 'faint' : ''}${r.name === state.me ? ' me' : ''}">${cols.map(([k, , f]) => `<td class="num">${k === 'name' ? nameCell(r) : fmtVal(r[k], f)}</td>`).join('')}</tr>`).join('');
   const seg = (attr, val, label, cur) => `<button type="button" class="seg press" data-${attr}="${val}" aria-pressed="${cur === val}">${label}</button>`;
   const hasDecoded = V.cols.some(([k]) => srcOf(view, k) !== 'ea');
   const notes = {
@@ -478,9 +478,9 @@ function viewSquad() {
   return `<div class="page-title rise"><h1>Squad</h1><p class="muted">Tap a player for their profile. Badges show each player’s club.</p></div>
     <ul class="squad">${rows}</ul>
     <section class="card pad rise"><div class="card-head"><h2>Stats table</h2><button type="button" class="link-accent small" data-explain-view="${view}">What these mean</button></div>
-      <div class="segs">${Object.entries(VIEWS).map(([k, v]) => seg('mode', k, v.label, view)).join('')}</div>
+      <div class="segs scroll">${Object.entries(VIEWS).map(([k, v]) => seg('mode', k, v.label, view)).join('')}</div>
       ${view !== 'career' ? `<div class="segs">${seg('period', 'all', 'All tracked', state.period)}${seg('period', 'week', 'This week', state.period)}</div>` : ''}
-      ${sorted.length ? `<div class="table-wrap"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>` : '<p class="empty">No data for this view yet.</p>'}
+      ${sorted.length ? `<div class="tw"><div class="table-wrap"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div></div>` : '<p class="empty">No data for this view yet.</p>'}
       <p class="note">${notes[view] || 'Tracked league matches. “/90” = per full match, from actual minutes played.'}${view !== 'career' ? ' Faded rows: fewer than 5 games, listed last.' : ''}</p>
       ${hasDecoded ? '<p class="note"><sup class="src-mark d">D</sup> decoded from EA’s hidden event codes · <sup class="src-mark u">?</sup> unverified, didn’t match the in-game screen · no mark = EA’s own stat</p>' : ''}
     </section>
@@ -494,8 +494,16 @@ function viewSquad() {
 function advancedHTML(name) {
   const r = E.advancedTable(D.matches, D.events).find((x) => x.name === name);
   if (!r) return '';
+  const pool = E.advancedTable(D.matches, D.events).filter((x) => !x.lowSample);
+  const rk = (key, fn) => {
+    if (r.lowSample || pool.length < 3) return '';
+    const val = fn ? fn(r) : r[key];
+    if (val == null) return '';
+    const n = 1 + pool.filter((x) => (fn ? fn(x) : x[key]) > val).length;
+    return ` <small class="rank">#${n} of ${pool.length}</small>`;
+  };
   const p90 = (v) => (v == null ? '' : ` <small>${fx(v, 1)}/90</small>`);
-  const row = (key, value, extra = '') => `<li><button type="button" class="xlabel" data-explain="${key}">${esc(E.EXPLAIN[key]?.[0] || key)}</button><span class="xv num">${value}${extra}</span>${srcTag(E.SOURCE[key] || 'ea')}</li>`;
+  const row = (key, value, extra = '', rank = '') => `<li><button type="button" class="xlabel" data-explain="${key}">${esc(E.EXPLAIN[key]?.[0] || key)}</button><span class="xv num">${value}${extra}${rank}</span>${srcTag(E.SOURCE[key] || 'ea')}</li>`;
   const known = r.fwdCompleted + r.backCompleted + r.sideCompleted;
   const dirBar = known
     ? `<div class="dirbar" role="img" aria-label="Pass direction: ${pct(r.fwdShare)} forward, ${pct(r.sideShare)} sideways, ${pct(r.backShare)} backward">
@@ -508,10 +516,10 @@ function advancedHTML(name) {
     <div class="adv-body">
       ${r.lowSample ? '<p class="note warnnote">Fewer than 5 tracked games — these numbers will swing a lot.</p>' : ''}
       ${group('Passing', [
-        row('passPct', `${pct(r.passPct)} <small>${r.passesCompleted}/${r.passesAttempted}</small>`),
+        row('passPct', `${pct(r.passPct)} <small>${r.passesCompleted}/${r.passesAttempted}</small>`, '', rk('passPct')),
         `<li class="xwide"><button type="button" class="xlabel" data-explain="fwdShare">Pass direction</button>${srcTag('decoded')}${dirBar}</li>`,
-        row('fwdPct', pct(r.fwdPct), p90(r.fwdPer90)),
-        row('throughBalls', r.throughBalls, p90(r.throughPer90)),
+        row('fwdPct', pct(r.fwdPct), p90(r.fwdPer90), rk('fwdPct')),
+        row('throughBalls', r.throughBalls, p90(r.throughPer90), rk('throughBalls')),
         row('switches', r.switches),
         row('firstTime', r.firstTime),
         row('longPct', pct(r.longPct)),
@@ -519,14 +527,14 @@ function advancedHTML(name) {
         row('crossesCompleted', r.crossesCompleted),
       ])}
       ${group('Attacking', [
-        row('conversion', pct(r.conversion), ` <small>${r.goals}/${r.shots}</small>`),
+        row('conversion', pct(r.conversion), ` <small>${r.goals}/${r.shots}</small>`, rk('conversion')),
         row('gaPer90', fx(r.gaPer90, 2)),
         row('shotsOnTarget', r.shotsOnTarget, ` <small>${pct(r.shotAcc)} acc</small>`),
         row('inBoxShare', pct(r.inBoxShare)),
         row('throughBallAssists', r.throughBallAssists),
       ])}
       ${group('Dribbling & possession', [
-        row('dribblesCompleted', r.dribblesCompleted, p90(r.dribblesPer90)),
+        row('dribblesCompleted', r.dribblesCompleted, p90(r.dribblesPer90), rk('dribblesCompleted')),
         row('beatTotal', r.beatTotal, ` <small>${r.beatSkill} with skills</small>`),
         row('foulsWon', r.foulsWon),
         row('possLost', r.possLost, ` <small>D ${r.possLostDef} · M ${r.possLostMid} · A ${r.possLostAtt}</small>`),
@@ -801,3 +809,9 @@ async function main() {
   render();
 }
 main();
+
+// fade hint on wide tables: hide once scrolled to the right edge
+document.addEventListener('scroll', (e) => {
+  const el = e.target;
+  if (el?.classList?.contains('table-wrap')) el.parentElement.classList.toggle('end', el.scrollLeft + el.clientWidth >= el.scrollWidth - 4);
+}, true);
