@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { endpoints } from './lib/ea.mjs';
 import { normalizeMatch, extractEvents, mergeMatches, normalizeMembers, localDate } from './lib/normalize.mjs';
 
+const SKILL_MAX_AGE_S = 14 * 86400; // only look up ratings for recent matches — an old match's rating has drifted
+const SKILL_LOOKUPS_PER_RUN = 12;
 const TYPE_LABEL = { leagueMatch: 'league', playoffMatch: 'playoff', friendlyMatch: 'friendly' };
 
 async function readJson(file, fallback) {
@@ -35,6 +37,7 @@ function realFetchers(log) {
     overall: (c) => endpoints.overall(c.platform, c.clubId, opts),
     search: (c) => endpoints.search(c.platform, c.clubName.trim(), opts),
     seasonSearch: (c) => endpoints.seasonSearch(c.platform, c.clubName.trim(), opts),
+    opponent: (c, clubId) => endpoints.overall(c.platform, clubId, opts),
   };
 }
 
@@ -48,6 +51,8 @@ export async function run({ config, dataDir, fetchers, now = Date.now(), log = c
   let changed = false;
   let leagueOk = false;
   let newMatches = 0;
+  let rawSaved = 0;
+  let ourSkill = null;
 
   // 1. Matches (the important part — EA only keeps the last 10 of each type)
   for (const type of config.matchTypes) {
@@ -59,6 +64,12 @@ export async function run({ config, dataDir, fetchers, now = Date.now(), log = c
       for (const m of raw) {
         const ev = extractEvents(m, config.clubId);
         if (Object.keys(ev).length) events[String(m.matchId)] = ev;
+        // Keep EA's full response for each match, untouched, in case we want more out of it later.
+        const rawFile = f(`raw/${label}/${m.matchId}.json`);
+        if (m.matchId != null && !existsSync(rawFile)) {
+          try { await mkdir(path.dirname(rawFile), { recursive: true }); await writeFile(rawFile, JSON.stringify(m) + '\n'); changed = true; rawSaved++; }
+          catch (err) { warnings.push(`could not save raw match ${m.matchId}: ${err.message}`); }
+        }
       }
       const res = mergeMatches(matches, fresh, label);
       matches = res.matches;
@@ -124,11 +135,37 @@ export async function run({ config, dataDir, fetchers, now = Date.now(), log = c
       overall: Object.fromEntries(Object.entries(overall).filter(([k]) => !/^last(Match|Opponent)\d/.test(k))),
     };
     if (await writeIfChanged(f('club.json'), club)) changed = true;
+    ourSkill = n(overall.skillRating) || null;
   } catch (err) {
     errors.push(`club: ${err.message}`);
   }
 
-  // 4. Status (the website shows a warning if updates stop)
+  // 4. Skill ratings: ours and each recent opponent's, as close to match time as we can get.
+  //    Best effort — a failure here is only a warning and never blocks the match history.
+  let skillsAdded = 0;
+  if (fetchers.opponent) {
+    const nowS = Math.floor(now / 1000);
+    const recent = matches.filter((m) => m.opp?.id && nowS - m.ts <= SKILL_MAX_AGE_S);
+    const wanted = [...new Set(recent.filter((m) => m.opp.skill == null).map((m) => m.opp.id))].slice(0, SKILL_LOOKUPS_PER_RUN);
+    const found = new Map();
+    let failed = 0;
+    for (const id of wanted) {
+      try {
+        const res = await fetchers.opponent(config, id);
+        const skill = Number((Array.isArray(res) ? res[0] : null)?.skillRating);
+        if (Number.isFinite(skill) && skill > 0) found.set(id, skill);
+      } catch { failed++; }
+    }
+    if (failed) warnings.push(`could not look up ${failed} opponent rating(s) — will retry next run`);
+    for (const m of recent) {
+      if (m.opp.skill == null && found.has(m.opp.id)) { m.opp.skill = found.get(m.opp.id); m.opp.skillTs = nowS; skillsAdded++; }
+      if (m.ourSkill == null && ourSkill) m.ourSkill = ourSkill;
+    }
+    if (await writeIfChanged(f('matches.json'), matches)) changed = true;
+    if (wanted.length) log(`opponent ratings: ${found.size}/${wanted.length} found`);
+  }
+
+  // 5. Status (the website shows a warning if updates stop)
   Object.assign(status, {
     lastRun: now,
     ok: errors.length === 0,
@@ -141,7 +178,7 @@ export async function run({ config, dataDir, fetchers, now = Date.now(), log = c
   });
   await writeIfChanged(f('status.json'), status);
 
-  return { ok: leagueOk, errors, warnings, newMatches, changed };
+  return { ok: leagueOk, errors, warnings, newMatches, changed, rawSaved, skillsAdded };
 }
 
 // CLI entry

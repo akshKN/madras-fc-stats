@@ -70,6 +70,8 @@ export function extractEvents(raw, clubId) {
   return out;
 }
 
+const keep = (obj, keys) => Object.fromEntries(keys.filter((k) => obj?.[k] != null).map((k) => [k, obj[k]]));
+
 /**
  * Merge freshly fetched matches into saved history.
  * Returns { matches, added, gap } — gap is set when EA's 10-match window
@@ -82,8 +84,10 @@ export function mergeMatches(saved, fetched, type) {
 
   let added = 0;
   for (const m of fetched) {
-    if (!byId.has(m.id)) added++;
-    byId.set(m.id, m);
+    const prev = byId.get(m.id);
+    if (!prev) added++;
+    // Opponent/our skill ratings are looked up separately (see poll.mjs) — don't lose them on a re-fetch.
+    byId.set(m.id, prev ? { ...m, opp: { ...m.opp, ...keep(prev.opp, ['skill', 'skillTs']) }, ...keep(prev, ['ourSkill']) } : m);
   }
 
   let gap = null;

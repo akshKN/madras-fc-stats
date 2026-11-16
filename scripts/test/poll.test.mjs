@@ -116,3 +116,57 @@ test('falls back to the all-time division if the season leaderboard is unavailab
   assert.equal(club.currentDivision, 8);
   assert.equal(club.season, null);
 });
+
+// --- raw responses + opponent ratings ---
+const NOW = Date.UTC(2026, 10, 15);
+const withOpp = (over = {}) => ({ ...fakeFetchers(), opponent: async (c, id) => [{ clubId: id, skillRating: String(1500 + (Number(id) % 100)) }], ...over });
+
+test('saves each raw EA match once, untouched', async () => {
+  const d = await tmp();
+  const r1 = await run({ config, dataDir: d, fetchers: fakeFetchers(), now: NOW, log: quiet });
+  assert.equal(r1.rawSaved, 10);
+  const files = await readdir(path.join(d, 'raw', 'league'));
+  assert.equal(files.length, 10);
+  const raw = await read(d, `raw/league/${files[0]}`);
+  assert.ok(raw.clubs && raw.players && raw.timestamp, 'full EA shape kept');
+  const r2 = await run({ config, dataDir: d, fetchers: fakeFetchers(), now: NOW + 3600e3, log: quiet });
+  assert.equal(r2.rawSaved, 0);
+});
+
+test('adds opponent and own skill ratings, and keeps them when EA re-sends the match', async () => {
+  const d = await tmp();
+  let calls = 0;
+  const fetchers = withOpp({ opponent: async (c, id) => { calls++; return [{ skillRating: '1700' }]; } });
+  const r1 = await run({ config, dataDir: d, fetchers, now: NOW, log: quiet });
+  const saved = await read(d, 'matches.json');
+  assert.equal(r1.skillsAdded, 10);
+  assert.ok(saved.every((m) => m.opp.skill === 1700 && m.opp.skillTs && m.ourSkill > 0));
+  assert.equal(calls, new Set(saved.map((m) => m.opp.id)).size, 'one lookup per distinct opponent');
+  calls = 0;
+  const r2 = await run({ config, dataDir: d, fetchers, now: NOW + 3600e3, log: quiet });
+  assert.equal(calls, 0, 'no repeat lookups');
+  assert.equal(r2.skillsAdded, 0);
+  assert.ok((await read(d, 'matches.json')).every((m) => m.opp.skill === 1700), 'ratings survive a re-fetch');
+});
+
+test('a failed rating lookup is only a warning and gets retried', async () => {
+  const d = await tmp();
+  const r1 = await run({ config, dataDir: d, fetchers: withOpp({ opponent: async () => { throw new Error('403'); } }), now: NOW, log: quiet });
+  assert.equal(r1.ok, true);
+  assert.equal(r1.errors.length, 0);
+  assert.match(r1.warnings.join(), /opponent rating/);
+  assert.equal((await read(d, 'status.json')).ok, true);
+  assert.equal((await read(d, 'matches.json')).length, 10);
+  const r2 = await run({ config, dataDir: d, fetchers: withOpp(), now: NOW + 3600e3, log: quiet });
+  assert.equal(r2.skillsAdded, 10);
+});
+
+test('does not look up ratings for old matches or junk values', async () => {
+  const d = await tmp();
+  const old = await run({ config, dataDir: d, fetchers: withOpp(), now: NOW + 30 * 86400e3, log: quiet });
+  assert.equal(old.skillsAdded, 0);
+  assert.ok((await read(d, 'matches.json')).every((m) => m.opp.skill == null && m.ourSkill == null));
+  const d2 = await tmp();
+  const junk = await run({ config, dataDir: d2, fetchers: withOpp({ opponent: async () => [{ skillRating: '' }] }), now: NOW, log: quiet });
+  assert.equal(junk.skillsAdded, 0);
+});
