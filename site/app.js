@@ -474,8 +474,18 @@ function viewSquad() {
     career: 'Career totals come straight from EA and include matches from before tracking started.',
   };
   const duos = S.partnerships(D.matches, 3).slice(0, 6);
+  const adv = E.advancedTable(D.matches, D.events).filter((x) => !x.lowSample);
+  const lead = (label, key, f) => {
+    const c = adv.filter((x) => x[key] != null).sort((a, b) => b[key] - a[key])[0];
+    return c ? `<button type="button" class="lead press js-player" data-player="${esc(c.name)}"><span class="lead-k">${label}</span><b class="lead-n">${esc(c.name)}</b><span class="lead-v num accent">${fmtVal(c[key], f)}</span></button>` : '';
+  };
+  const leaders = adv.length >= 3 ? `<section class="rise"><div class="card-head"><h2>Squad leaders</h2><span class="muted small">5+ tracked games</span></div><div class="leads">${[
+    lead('Pass accuracy', 'passPct', 'pct'), lead('Through balls /90', 'throughPer90', 'f1'), lead('Dribbles /90', 'dribblesPer90', 'f1'),
+    lead('Conversion', 'conversion', 'pct'), lead('Interceptions /90', 'interceptionsPer90', 'f1'), lead('G+A /90', 'gaPer90', 'f2'),
+  ].join('')}</div></section>` : '';
 
   return `<div class="page-title rise"><h1>Squad</h1><p class="muted">Tap a player for their profile. Badges show each player’s club.</p></div>
+    ${leaders}
     <ul class="squad">${rows}</ul>
     <section class="card pad rise"><div class="card-head"><h2>Stats table</h2><button type="button" class="link-accent small" data-explain-view="${view}">What these mean</button></div>
       <div class="segs scroll">${Object.entries(VIEWS).map(([k, v]) => seg('mode', k, v.label, view)).join('')}</div>

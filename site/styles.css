@@ -306,3 +306,10 @@ details.adv[open] .chev { transform: rotate(90deg); }
 tr.me td { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 tr.me td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .rank { color: var(--accent-text); font-weight: 700; margin-left: 4px; }
+
+.leads { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px 14px; padding: 0 16px 4px; scrollbar-width: none; }
+.leads::-webkit-scrollbar { display: none; }
+.lead { flex: none; width: 128px; display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 10px 12px; border-radius: 14px; cursor: pointer; background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+.lead-k { font-size: .72rem; color: var(--muted); }
+.lead-n { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lead-v { font-size: 1.35rem; font-weight: 800; }
