@@ -5,7 +5,9 @@
   "type": "league",
   "opp": {
    "id": "2185204",
-   "name": "LosersVsWrld"
+   "name": "LosersVsWrld",
+   "skill": 1479,
+   "skillTs": 1794855484
   },
   "gf": 2,
   "ga": 2,
@@ -138,7 +140,8 @@
     "sec": 5528,
     "ur": 0
    }
-  ]
+  ],
+  "ourSkill": 1624
  },
  {
   "id": "194734908090145",
@@ -146,7 +149,9 @@
   "type": "league",
   "opp": {
    "id": "322312",
-   "name": "Vitoria CPH"
+   "name": "Vitoria CPH",
+   "skill": 1615,
+   "skillTs": 1794855484
   },
   "gf": 1,
   "ga": 0,
@@ -279,7 +284,8 @@
     "sec": 5577,
     "ur": 0
    }
-  ]
+  ],
+  "ourSkill": 1624
  },
  {
   "id": "194752771490132",
@@ -287,7 +293,9 @@
   "type": "league",
   "opp": {
    "id": "624907",
-   "name": "KUMAMOTO FC"
+   "name": "KUMAMOTO FC",
+   "skill": 1508,
+   "skillTs": 1794855484
   },
   "gf": 5,
   "ga": 3,
@@ -399,7 +407,8 @@
     "sec": 5486,
     "ur": 0
    }
-  ]
+  ],
+  "ourSkill": 1624
  },
  {
   "id": "194786588260049",
@@ -407,7 +416,9 @@
   "type": "league",
   "opp": {
    "id": "1297219",
-   "name": "willi fccc"
+   "name": "willi fccc",
+   "skill": 1506,
+   "skillTs": 1794855484
   },
   "gf": 3,
   "ga": 2,
@@ -498,7 +509,8 @@
     "sec": 5559,
     "ur": 0
    }
-  ]
+  ],
+  "ourSkill": 1624
  },
  {
   "id": "194938138560073",
@@ -506,7 +518,9 @@
   "type": "league",
   "opp": {
    "id": "2204664",
-   "name": "Fertan FC"
+   "name": "Fertan FC",
+   "skill": 1442,
+   "skillTs": 1794855484
   },
   "gf": 3,
   "ga": 0,
@@ -597,7 +611,8 @@
     "sec": 2205,
     "ur": 0
    }
-  ]
+  ],
+  "ourSkill": 1624
  },
  {
   "id": "194734514840403",
@@ -605,7 +620,9 @@
   "type": "league",
   "opp": {
    "id": "2229524",
-   "name": "Warframe"
+   "name": "Warframe",
+   "skill": 1404,
+   "skillTs": 1794855484
   },
   "gf": 3,
   "ga": 0,
@@ -696,7 +713,8 @@
     "sec": 3626,
     "ur": 0
    }
-  ]
+  ],
+  "ourSkill": 1624
  },
  {
   "id": "194742315090328",
@@ -704,7 +722,9 @@
   "type": "league",
   "opp": {
    "id": "2243832",
-   "name": "Los gomitas"
+   "name": "Los gomitas",
+   "skill": 1480,
+   "skillTs": 1794855484
   },
   "gf": 5,
   "ga": 1,
@@ -795,7 +815,8 @@
     "sec": 5615,
     "ur": 0
    }
-  ]
+  ],
+  "ourSkill": 1624
  },
  {
   "id": "192536275650355",
@@ -803,7 +824,9 @@
   "type": "league",
   "opp": {
    "id": "57540",
-   "name": "La Escuelita"
+   "name": "La Escuelita",
+   "skill": 1532,
+   "skillTs": 1794855484
   },
   "gf": 1,
   "ga": 2,
@@ -894,7 +917,8 @@
     "sec": 5491,
     "ur": 0
    }
-  ]
+  ],
+  "ourSkill": 1624
  },
  {
   "id": "192646047790105",
@@ -902,7 +926,9 @@
   "type": "league",
   "opp": {
    "id": "926147",
-   "name": "AD Tejar"
+   "name": "AD Tejar",
+   "skill": 1522,
+   "skillTs": 1794855484
   },
   "gf": 4,
   "ga": 5,
@@ -993,7 +1019,8 @@
     "sec": 5512,
     "ur": 0
    }
-  ]
+  ],
+  "ourSkill": 1624
  },
  {
   "id": "192198985840015",
@@ -1001,7 +1028,9 @@
   "type": "league",
   "opp": {
    "id": "988129",
-   "name": "Tel Aviv OBlock"
+   "name": "Tel Aviv OBlock",
+   "skill": 1535,
+   "skillTs": 1794855484
   },
   "gf": 3,
   "ga": 3,
@@ -1092,7 +1121,8 @@
     "sec": 5552,
     "ur": 0
    }
-  ]
+  ],
+  "ourSkill": 1624
  },
  {
   "id": "192232846280356",
@@ -1100,7 +1130,9 @@
   "type": "league",
   "opp": {
    "id": "2251",
-   "name": "06 Mustangs"
+   "name": "06 Mustangs",
+   "skill": 1317,
+   "skillTs": 1794855484
   },
   "gf": 6,
   "ga": 0,
@@ -1191,7 +1223,8 @@
     "sec": 5503,
     "ur": 0
    }
-  ]
+  ],
+  "ourSkill": 1624
  },
  {
   "id": "192218732800112",
@@ -1199,7 +1232,9 @@
   "type": "league",
   "opp": {
    "id": "2132539",
-   "name": "BananaFcc"
+   "name": "BananaFcc",
+   "skill": 1474,
+   "skillTs": 1794855484
   },
   "gf": 4,
   "ga": 2,
@@ -1290,7 +1325,8 @@
     "sec": 5572,
     "ur": 0
    }
-  ]
+  ],
+  "ourSkill": 1624
  },
  {
   "id": "192164646090224",
@@ -1389,7 +1425,8 @@
     "sec": 687,
     "ur": 6
    }
-  ]
+  ],
+  "ourSkill": 1624
  },
  {
   "id": "190630023160379",
@@ -1509,7 +1546,8 @@
     "sec": 5468,
     "ur": 0
    }
-  ]
+  ],
+  "ourSkill": 1624
  },
  {
   "id": "190554173190016",
@@ -1629,7 +1667,8 @@
     "sec": 1549,
     "ur": 12
    }
-  ]
+  ],
+  "ourSkill": 1624
  },
  {
   "id": "190194852250305",
@@ -1728,7 +1767,8 @@
     "sec": 5468,
     "ur": 0
    }
-  ]
+  ],
+  "ourSkill": 1624
  },
  {
   "id": "190408268060096",
@@ -1827,6 +1867,7 @@
     "sec": 4867,
     "ur": 12
    }
-  ]
+  ],
+  "ourSkill": 1624
  }
 ]
