@@ -879,8 +879,11 @@ async function copyRecap() {
 }
 
 /* ---------------- router + render ---------------- */
+// The URL hash is the route on the real site. Inside embedded previews the hash can be unreliable,
+// so in-app navigation also keeps the route in memory and never depends on a hashchange event.
+let memRoute = null;
 function route() {
-  const h = decodeURIComponent(location.hash.replace(/^#/, ''));
+  const h = memRoute ?? decodeURIComponent(location.hash.replace(/^#/, ''));
   if (h.startsWith('p=')) return { tab: 'profile', who: h.slice(2) };
   if (['matches', 'squad', 'analytics', 'profile'].includes(h)) return { tab: h };
   return { tab: 'home' };
@@ -919,11 +922,17 @@ function render() {
   countUp(view);
 }
 
-const go = (hash) => { if (location.hash === '#' + hash) render(); else location.hash = hash; };
+const go = (hash) => {
+  memRoute = decodeURIComponent(hash);
+  try { if (location.protocol !== 'about:' && location.hash !== '#' + hash) location.hash = hash; } catch { /* ignore */ }
+  render();
+};
 
 document.addEventListener('click', (e) => {
   const el = (sel) => e.target.closest(sel);
   if (el('[data-close]')) { closeSheet(); return; }
+  const nav = el('a[href^="#"]');
+  if (nav) { e.preventDefault(); closeSheet(); go(nav.getAttribute('href').slice(1) || 'home'); return; }
   const player = el('.js-player');
   if (player) { e.preventDefault(); closeSheet(); go('p=' + encodeURIComponent(player.dataset.player)); return; }
   const me = el('[data-me]');
@@ -973,7 +982,11 @@ document.addEventListener('change', (e) => {
   if (e.target.id === 'cmp-b') { state.cmp.b = e.target.value; render(); }
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
-window.addEventListener('hashchange', () => { closeSheet(); render(); });
+window.addEventListener('hashchange', () => {
+  const h = decodeURIComponent(location.hash.replace(/^#/, ''));
+  if (memRoute === h) return; // already rendered by go()
+  memRoute = null; closeSheet(); render();
+});
 
 /* ---------------- boot ---------------- */
 async function main() {
