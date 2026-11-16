@@ -532,6 +532,11 @@ function viewAnalytics() {
   const warn = thin.length ? `<p class="note warnnote">${thin.map(([n, k]) => `${esc(n)}: ${k} game${k === 1 ? '' : 's'}`).join(' · ')} in this window — small samples swing a lot.</p>` : '';
   const hc = A.byHeadcount(D.matches);
   const hcRows = hc.map((r) => `<li class="block"><div class="row-between"><span><b>${r.humans}</b> of us</span><span class="v num">${pct(r.winPct)} wins</span></div><div class="k num">${r.n} game${r.n === 1 ? '' : 's'} · ${r.w}W ${r.d}D ${r.l}L · ${r.gf}–${r.ga} (${r.gdPerGame >= 0 ? '+' : ''}${fx(r.gdPerGame, 1)}/game)</div><div class="bar" aria-hidden="true"><i class="grow" style="width:${Math.round((r.winPct || 0) * 100)}%"></i></div></li>`).join('');
+  const os = A.byOpponentStrength(D.matches);
+  const osRow = (label, r) => (r.n ? `<li class="block"><div class="row-between"><span>${label}</span><span class="v num">${pct(r.winPct)} wins</span></div><div class="k num">${r.n} game${r.n === 1 ? '' : 's'} · ${r.w}W ${r.d}D ${r.l}L · ${r.gf}–${r.ga} (${r.gdPerGame >= 0 ? '+' : ''}${fx(r.gdPerGame, 1)}/game)</div><div class="bar" aria-hidden="true"><i class="grow" style="width:${Math.round((r.winPct || 0) * 100)}%"></i></div></li>` : '');
+  const oppHTML = os.rated ? `<section class="card pad rise"><div class="card-head"><h2>By opponent strength</h2><span class="muted small">${os.rated} rated game${os.rated === 1 ? '' : 's'}</span></div>
+      <ul class="list">${osRow('Rated <b>above</b> us', os.stronger)}${osRow('Rated <b>below</b> us', os.weaker)}</ul>
+      <p class="note">Uses EA’s skill rating for both clubs, looked up shortly after each match.${os.unknown ? ` ${os.unknown} older game${os.unknown === 1 ? '' : 's'} have no rating.` : ''}${os.rated < 10 ? ' Small sample so far.' : ''}</p></section>` : '';
   const tr = A.trios(D.matches, 4).slice(0, 6);
   const trRows = tr.map((t) => `<li class="block"><div class="row-between"><span>${t.names.map(plink).join(' · ')}</span><span class="v num">${pct(t.winPct)}</span></div><div class="k num">${t.n} games · ${t.w}W ${t.d}D ${t.l}L · ${t.gf}–${t.ga}</div></li>`).join('');
   const anSeg = (v, label) => `<button type="button" class="seg press" data-an="${v}" aria-pressed="${state.anView === v}">${label}</button>`;
@@ -546,6 +551,7 @@ function viewAnalytics() {
       ${warn}<p class="note">Highlighted = better. Per-90 stats use actual minutes. Through balls, dribbles, interceptions and conversion are decoded from EA’s hidden event codes.</p></section>
     <section class="card pad rise"><div class="card-head"><h2>Results by squad size</h2><span class="muted small">how many of us played</span></div>
       ${hcRows ? `<ul class="list">${hcRows}</ul>` : '<p class="empty">No data yet.</p>'}</section>
+    ${oppHTML}
     <section class="card pad rise"><div class="card-head"><h2>Best trios</h2><span class="muted small">4+ games together</span></div>
       ${trRows ? `<ul class="list">${trRows}</ul>` : '<p class="empty">Needs a few more games together.</p>'}</section>
     ${footerHTML()}`;

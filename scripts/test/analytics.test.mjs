@@ -39,3 +39,11 @@ test('compare gives null (not zero) for players with no data in the window', () 
   assert.equal(r.rows.find((x) => x.key === 'rating').b, null);
   assert.equal(r.rows.find((x) => x.key === 'rating').edge, null);
 });
+
+test('byOpponentStrength splits on rating and counts unrated games', () => {
+  const m = (result, gf, ga, skill, ourSkill) => ({ result, gf, ga, opp: { name: 'X', skill }, ourSkill, players: [] });
+  const r = A.byOpponentStrength([m('W', 2, 0, 1700, 1600), m('L', 0, 1, 1650, 1600), m('W', 3, 1, 1500, 1600), m('D', 1, 1, undefined, 1600), m('W', 1, 0, 1600, undefined)]);
+  assert.deepEqual([r.stronger.n, r.stronger.w, r.weaker.n, r.unknown, r.rated], [2, 1, 1, 2, 3]);
+  assert.equal(r.stronger.winPct, 0.5);
+  assert.equal(A.byOpponentStrength([]).stronger.winPct, null);
+});

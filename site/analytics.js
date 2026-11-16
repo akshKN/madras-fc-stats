@@ -67,3 +67,14 @@ export function trios(matches, min = 4) {
   return [...by.values()].filter((r) => r.n >= min).map(fin)
     .sort((x, y) => y.winPct - x.winPct || y.gdPerGame - x.gdPerGame || y.n - x.n);
 }
+
+/** Results split by whether the opponent's skill rating was above or below ours (ratings looked up around match time). */
+export function byOpponentStrength(matches) {
+  const up = rec(), down = rec();
+  let unknown = 0;
+  for (const m of matches) {
+    if (m.opp?.skill == null || m.ourSkill == null) { unknown++; continue; }
+    add(m.opp.skill > m.ourSkill ? up : down, m);
+  }
+  return { stronger: fin(up), weaker: fin(down), unknown, rated: up.n + down.n };
+}
