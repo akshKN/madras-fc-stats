@@ -1,6 +1,7 @@
 import * as S from './stats.js';
 import { CLUBS, CLUB_ORDER, THEMES, tagFor, clubId } from './clubs.js';
 import * as E from './events.js';
+import * as A from './analytics.js';
 
 const cfg = window.MFC_CONFIG || {};
 const TZ = cfg.timeZone || 'America/Chicago';
@@ -49,6 +50,7 @@ const state = {
   mode: 'tracked', // squad table: tracked | career | defence
   period: 'all',
   sort: { key: 'rating', dir: -1 },
+  cmp: { a: null, b: null, range: 10 },
   me: store.get('me'),
   themeId: store.get('theme'),
   lastTab: null,
@@ -500,6 +502,37 @@ function viewSquad() {
     ${footerHTML()}`;
 }
 
+
+/* ---------------- analytics tab ---------------- */
+function viewAnalytics() {
+  const tracked = S.playerTable(D.matches).sort((x, y) => y.apps - x.apps);
+  const names = tracked.map((t) => t.name);
+  const c = state.cmp;
+  if (!names.includes(c.a)) c.a = names.includes(state.me) ? state.me : names[0];
+  if (!names.includes(c.b) || c.b === c.a) c.b = names.find((n) => n !== c.a) || c.a;
+  const cmp = A.compare(D.matches, D.events, c.a, c.b, c.range);
+  const opt = (sel) => names.map((n) => `<option value="${esc(n)}"${n === sel ? ' selected' : ''}>${esc(n)}</option>`).join('');
+  const seg = (val, label) => `<button type="button" class="seg press" data-range="${val}" aria-pressed="${String(c.range) === String(val)}">${label}</button>`;
+  const rows = cmp.rows.map((r) => `<tr><td class="num cv ${r.edge === 'a' ? 'edge' : ''}">${fmtVal(r.a, r.fmt)}</td><td class="cl">${esc(r.label)}</td><td class="num cv ${r.edge === 'b' ? 'edge' : ''}">${fmtVal(r.b, r.fmt)}</td></tr>`).join('');
+  const thin = [[c.a, cmp.appsA], [c.b, cmp.appsB]].filter(([, n]) => n < 5);
+  const warn = thin.length ? `<p class="note warnnote">${thin.map(([n, k]) => `${esc(n)}: ${k} game${k === 1 ? '' : 's'}`).join(' · ')} in this window — small samples swing a lot.</p>` : '';
+  const hc = A.byHeadcount(D.matches);
+  const hcRows = hc.map((r) => `<li class="block"><div class="row-between"><span><b>${r.humans}</b> of us</span><span class="v num">${pct(r.winPct)} wins</span></div><div class="k num">${r.n} game${r.n === 1 ? '' : 's'} · ${r.w}W ${r.d}D ${r.l}L · ${r.gf}–${r.ga} (${r.gdPerGame >= 0 ? '+' : ''}${fx(r.gdPerGame, 1)}/game)</div><div class="bar" aria-hidden="true"><i class="grow" style="width:${Math.round((r.winPct || 0) * 100)}%"></i></div></li>`).join('');
+  const tr = A.trios(D.matches, 4).slice(0, 6);
+  const trRows = tr.map((t) => `<li class="block"><div class="row-between"><span>${t.names.map(plink).join(' · ')}</span><span class="v num">${pct(t.winPct)}</span></div><div class="k num">${t.n} games · ${t.w}W ${t.d}D ${t.l}L · ${t.gf}–${t.ga}</div></li>`).join('');
+  return `<div class="page-title rise"><h1>Analytics</h1><p class="muted">Compare players and see what works for the squad.</p></div>
+    <section class="card pad rise"><div class="card-head"><h2>Compare</h2><span class="muted small">${cmp.games} club games</span></div>
+      <div class="cmp-pick"><select id="cmp-a" aria-label="Player one">${opt(c.a)}</select><span class="muted">vs</span><select id="cmp-b" aria-label="Player two">${opt(c.b)}</select></div>
+      <div class="segs">${seg(5, 'Last 5')}${seg(10, 'Last 10')}${seg('all', 'All tracked')}</div>
+      <table class="cmp"><tbody>${rows}</tbody></table>
+      ${warn}<p class="note">Highlighted = better. Per-90 stats use actual minutes. Through balls, dribbles, interceptions and conversion are decoded from EA’s hidden event codes.</p></section>
+    <section class="card pad rise"><div class="card-head"><h2>Results by squad size</h2><span class="muted small">how many of us played</span></div>
+      ${hcRows ? `<ul class="list">${hcRows}</ul>` : '<p class="empty">No data yet.</p>'}</section>
+    <section class="card pad rise"><div class="card-head"><h2>Best trios</h2><span class="muted small">4+ games together</span></div>
+      ${trRows ? `<ul class="list">${trRows}</ul>` : '<p class="empty">Needs a few more games together.</p>'}</section>
+    ${footerHTML()}`;
+}
+
 /* ---------------- advanced stats (profile) ---------------- */
 function advancedHTML(name) {
   const r = E.advancedTable(D.matches, D.events).find((x) => x.name === name);
@@ -702,7 +735,7 @@ async function copyRecap() {
 function route() {
   const h = decodeURIComponent(location.hash.replace(/^#/, ''));
   if (h.startsWith('p=')) return { tab: 'profile', who: h.slice(2) };
-  if (['matches', 'squad', 'profile'].includes(h)) return { tab: h };
+  if (['matches', 'squad', 'analytics', 'profile'].includes(h)) return { tab: h };
   return { tab: 'home' };
 }
 
@@ -728,6 +761,7 @@ function render() {
   if (r.tab === 'home') view.innerHTML = viewHome();
   else if (r.tab === 'matches') view.innerHTML = viewMatches();
   else if (r.tab === 'squad') view.innerHTML = viewSquad();
+  else if (r.tab === 'analytics') view.innerHTML = viewAnalytics();
   else if (r.who) view.innerHTML = viewProfile(r.who);
   else view.innerHTML = state.me ? viewProfile(state.me) : viewWhoami();
   document.querySelectorAll('.tab').forEach((a) => a.setAttribute('aria-current', a.dataset.tab === r.tab ? 'page' : 'false'));
@@ -769,6 +803,8 @@ document.addEventListener('click', (e) => {
     if (seg.dataset.period) state.period = seg.dataset.period;
     render(); return;
   }
+  const rng = el('[data-range]');
+  if (rng) { state.cmp.range = rng.dataset.range === 'all' ? 'all' : Number(rng.dataset.range); render(); return; }
   const sort = el('th button[data-sort]');
   if (sort) {
     const k = sort.dataset.sort;
@@ -778,6 +814,8 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('change', (e) => {
   if (e.target.id === 'week-pick') { state.week = e.target.value; render(); }
+  if (e.target.id === 'cmp-a') { state.cmp.a = e.target.value; render(); }
+  if (e.target.id === 'cmp-b') { state.cmp.b = e.target.value; render(); }
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
 window.addEventListener('hashchange', () => { closeSheet(); render(); });

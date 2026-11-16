@@ -239,7 +239,7 @@ tr.dnp td { color: var(--muted); }
 /* tab bar */
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
   padding: 6px max(8px, calc((100vw - 760px) / 2)) calc(6px + env(safe-area-inset-bottom));
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -313,3 +313,11 @@ tr.me td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .lead-k { font-size: .72rem; color: var(--muted); }
 .lead-n { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lead-v { font-size: 1.35rem; font-weight: 800; }
+
+.cmp-pick { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.cmp-pick select { flex: 1; min-width: 0; min-height: 40px; border-radius: 10px; padding: 0 10px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); font: inherit; }
+table.cmp { width: 100%; border-collapse: collapse; }
+table.cmp td { padding: 9px 4px; border-top: 1px solid var(--border); }
+table.cmp .cv { width: 28%; text-align: center; color: var(--muted); }
+table.cmp .cv.edge { color: var(--accent-text); font-weight: 800; background: color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 8px; }
+table.cmp .cl { text-align: center; font-size: .82rem; color: var(--muted); }
