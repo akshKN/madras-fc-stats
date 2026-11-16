@@ -269,3 +269,29 @@ textarea#recap-text { width: 100%; background: var(--surface-2); border: 1px sol
 
 /* footer */
 .foot { color: var(--muted); font-size: .78rem; display: grid; gap: 4px; padding: 6px 2px 4px; }
+
+/* advanced stats */
+.src-mark { font-size: 9px; font-weight: 800; margin-left: 2px; vertical-align: super; color: var(--accent-text); }
+.src-mark.u { color: var(--warn); }
+.src-tag { flex: none; font-size: 9.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 2px 6px; border-radius: 6px; border: 1px solid var(--border); color: var(--muted); }
+.src-tag.decoded { color: var(--accent-text); border-color: color-mix(in srgb, var(--accent-text) 45%, transparent); }
+.src-tag.unverified { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
+tr.faint td { opacity: .55; }
+.segs + .segs { margin-top: -4px; }
+details.adv > summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 16px; min-height: 52px; cursor: pointer; }
+details.adv > summary::-webkit-details-marker { display: none; }
+details.adv .chev { color: var(--muted); font-size: 22px; transition: transform .2s ease; }
+details.adv[open] .chev { transform: rotate(90deg); }
+.adv-body { padding: 0 16px 16px; border-top: 1px solid var(--border); }
+.xgroup h3 { font-family: var(--display); font-weight: 700; font-size: 16px; text-transform: uppercase; letter-spacing: .05em; margin: 14px 0 6px; color: var(--accent-text); }
+.xlist { list-style: none; margin: 0; padding: 0; }
+.xlist li { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: .86rem; }
+.xlist li:last-child { border-bottom: 0; }
+.xlist li.xwide { flex-wrap: wrap; }
+.xlabel { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 4px 0; min-height: 32px; cursor: pointer; color: var(--text); font: inherit; text-decoration: underline dotted color-mix(in srgb, var(--muted) 60%, transparent); text-underline-offset: 3px; }
+.xv { font-weight: 700; text-align: right; }
+.xv small { color: var(--muted); font-weight: 500; font-size: .76rem; }
+.dirbar { flex-basis: 100%; display: flex; gap: 2px; height: 8px; border-radius: 5px; overflow: hidden; margin-top: 2px; }
+.dirbar .f { background: var(--accent-text); } .dirbar .s { background: var(--muted); } .dirbar .b { background: var(--border); }
+.dirlegend { flex-basis: 100%; display: flex; gap: 12px; font-size: .74rem; color: var(--muted); }
+.warnnote { color: var(--warn); }

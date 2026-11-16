@@ -1,5 +1,6 @@
 import * as S from './stats.js';
 import { CLUBS, CLUB_ORDER, THEMES, tagFor, clubId } from './clubs.js';
+import * as E from './events.js';
 
 const cfg = window.MFC_CONFIG || {};
 const TZ = cfg.timeZone || 'America/Chicago';
@@ -397,18 +398,39 @@ function matchRow(m) {
 }
 
 /* ---------------- SQUAD ---------------- */
-const TRACKED_COLS = [['name', 'Player'], ['apps', 'Apps'], ['g', 'G'], ['a', 'A'], ['gaPerGame', 'G+A/gm'], ['rating', 'Rating'], ['passPct', 'Pass %'], ['tacklePct', 'Tackle %'], ['sh', 'Shots'], ['mom', 'MOTM'], ['winPct', 'Win %']];
-const CAREER_COLS = [['name', 'Player'], ['gamesPlayed', 'GP'], ['goals', 'G'], ['assists', 'A'], ['ratingAve', 'Rating'], ['passSuccessRate', 'Pass %'], ['tackleSuccessRate', 'Tackle %'], ['shotSuccessRate', 'Shot %'], ['manOfTheMatch', 'MOTM'], ['winRate', 'Win %'], ['proOverall', 'OVR']];
-const DEFENCE_COLS = [['name', 'Player'], ['tm', 'Tackles won'], ['tacklePct', 'Tackle %'], ['concededPer90', 'Conceded/90'], ['cs', 'Clean sheets'], ['mins', 'Mins']];
+// Stats table views. fmt: pct | f1 | f2 | int.  Source tier comes from events.js SOURCE (EA when absent).
+const VIEWS = {
+  tracked: { label: 'Overview', sort: 'rating', cols: [['apps', 'Apps'], ['g', 'G'], ['a', 'A'], ['gaPerGame', 'G+A/gm', 'f2'], ['rating', 'Rating', 'f2'], ['passPct', 'Pass %', 'pct'], ['tacklePct', 'Tackle %', 'pct'], ['sh', 'Shots'], ['mom', 'MOTM'], ['winPct', 'Win %', 'pct']] },
+  passing: { label: 'Passing', sort: 'fwdPer90', adv: true, cols: [['apps', 'Apps'], ['passesPer90', 'Cmp/90', 'f1'], ['passPct', 'Pass %', 'pct'], ['fwdShare', 'Fwd share', 'pct'], ['fwdPct', 'Fwd acc', 'pct'], ['fwdPer90', 'Fwd/90', 'f1'], ['throughBalls', 'Through balls'], ['throughPer90', 'TB/90', 'f1'], ['longPct', 'Long acc', 'pct'], ['switches', 'Switches'], ['secondAssists', '2nd ast']] },
+  attack: { label: 'Attack', sort: 'gaPer90', adv: true, cols: [['apps', 'Apps'], ['goals', 'G'], ['assists', 'A'], ['gaPer90', 'G+A/90', 'f2'], ['shots', 'Shots'], ['shotsPer90', 'Shots/90', 'f1'], ['conversion', 'Conversion', 'pct'], ['shotsOnTarget', 'On target'], ['shotAcc', 'Shot acc', 'pct'], ['inBoxShare', 'In box', 'pct'], ['throughBallAssists', 'TB ast']] },
+  possession: { label: 'Possession', sort: 'dribblesPer90', adv: true, cols: [['apps', 'Apps'], ['dribblesCompleted', 'Dribbles'], ['dribblesPer90', 'Drib/90', 'f1'], ['beatTotal', 'Beaten'], ['beatSkill', 'Skill beat'], ['foulsWon', 'Fouls won'], ['possLostPer90', 'Lost/90', 'f1'], ['possLostDef', 'Lost D'], ['possLostMid', 'Lost M'], ['possLostAtt', 'Lost A'], ['possWonPer90', 'Won/90', 'f1']] },
+  defence: { label: 'Defence', sort: 'defActionsPer90', adv: true, cols: [['apps', 'Apps'], ['tacklesWon', 'Tackles won'], ['tacklePct', 'Tackle %', 'pct'], ['standingWon', 'Standing'], ['slidingWon', 'Sliding'], ['interceptions', 'Interceptions'], ['interceptionsPer90', 'Int/90', 'f1'], ['dispossessed', 'Dispossess'], ['defActionsPer90', 'Won ball/90', 'f1'], ['concededPer90', 'Conceded/90', 'f2'], ['cs', 'Clean sheets'], ['inPositionPct', 'Positioning', 'pct']] },
+  career: { label: 'Career', sort: 'ratingAve', cols: [['gamesPlayed', 'GP'], ['goals', 'G'], ['assists', 'A'], ['ratingAve', 'Rating', 'f1'], ['passSuccessRate', 'Pass %', 'rawpct'], ['tackleSuccessRate', 'Tackle %', 'rawpct'], ['shotSuccessRate', 'Shot %', 'rawpct'], ['manOfTheMatch', 'MOTM'], ['winRate', 'Win %', 'rawpct'], ['proOverall', 'OVR']] },
+};
+const srcOf = (view, key) => (VIEWS[view].adv ? E.SOURCE[key] || 'ea' : 'ea');
+const srcMark = (tier) => (tier === 'decoded' ? '<sup class="src-mark d" aria-label="decoded">D</sup>' : tier === 'unverified' ? '<sup class="src-mark u" aria-label="unverified">?</sup>' : '');
+const srcTag = (tier) => `<span class="src-tag ${tier}">${E.SOURCE_INFO[tier]?.label || 'EA'}</span>`;
 
-function cell(key, r) {
-  const v = r[key];
-  if (key === 'name') return `${plink(v)}${r.mainPos || r.favoritePosition ? `<span class="pos">${esc((r.mainPos || r.favoritePosition).slice(0, 3).toUpperCase())}</span>` : ''}`;
-  if (['passPct', 'tacklePct', 'winPct'].includes(key)) return pct(v);
-  if (['passSuccessRate', 'tackleSuccessRate', 'shotSuccessRate', 'winRate'].includes(key)) return v == null ? '–' : `${v}%`;
-  if (key === 'rating' || key === 'gaPerGame' || key === 'concededPer90') return fx(v, 2);
-  if (key === 'ratingAve') return fx(v, 1);
-  return v ?? '–';
+function fmtVal(v, fmt) {
+  if (v == null || Number.isNaN(v)) return '–';
+  if (fmt === 'pct') return pct(v);
+  if (fmt === 'rawpct') return `${v}%`;
+  if (fmt === 'f1') return fx(v, 1);
+  if (fmt === 'f2') return fx(v, 2);
+  return v;
+}
+function nameCell(r) {
+  const pos = r.mainPos || r.favoritePosition;
+  return `${plink(r.name)}${pos ? `<span class="pos">${esc(pos.slice(0, 3).toUpperCase())}</span>` : ''}`;
+}
+
+/** Rows for a table view: EA tracked stats merged with decoded event stats. */
+function tableRows(view, matches) {
+  if (view === 'career') return D.members;
+  const tracked = S.playerTable(matches);
+  if (!VIEWS[view].adv) return tracked;
+  const adv = new Map(E.advancedTable(matches, D.events).map((r) => [r.name, r]));
+  return tracked.map((t) => ({ ...adv.get(t.name), ...t }));
 }
 
 function viewSquad() {
@@ -430,36 +452,124 @@ function viewSquad() {
   }).join('');
 
   // stats table
-  const mode = state.mode;
-  const cols = mode === 'career' ? CAREER_COLS : mode === 'defence' ? DEFENCE_COLS : TRACKED_COLS;
-  const src = mode === 'career' ? D.members : S.playerTable(state.period === 'week' && state.week ? D.byWeek.get(state.week) || [] : D.matches);
+  const view = VIEWS[state.mode] ? state.mode : 'tracked';
+  const V = VIEWS[view];
+  const cols = [['name', 'Player'], ...V.cols];
+  const src = tableRows(view, view !== 'career' && state.period === 'week' && state.week ? D.byWeek.get(state.week) || [] : D.matches);
   const { key, dir } = state.sort;
-  const validKey = cols.some(([k]) => k === key) ? key : cols[1][0];
+  const validKey = cols.some(([k]) => k === key) ? key : V.sort;
+  const small = (r) => (view !== 'career' && r.apps < 5 ? 1 : 0);
   const sorted = [...src].sort((a, b) => {
+    if (small(a) !== small(b)) return small(a) - small(b); // under-5-game rows always sink below the rest
     const va = a[validKey], vb = b[validKey];
     if (typeof va === 'string' || typeof vb === 'string') return dir * String(va ?? '').localeCompare(String(vb ?? ''), undefined, { sensitivity: 'base' });
     return dir * ((va ?? -Infinity) - (vb ?? -Infinity));
   });
-  const th = cols.map(([k, label]) => `<th scope="col" ${k === validKey ? `aria-sort="${dir < 0 ? 'descending' : 'ascending'}"` : ''}><button type="button" data-sort="${k}">${label}${k === validKey ? (dir < 0 ? ' ↓' : ' ↑') : ''}</button></th>`).join('');
+  const th = cols.map(([k, label]) => `<th scope="col" ${k === validKey ? `aria-sort="${dir < 0 ? 'descending' : 'ascending'}"` : ''}><button type="button" data-sort="${k}">${label}${srcMark(srcOf(view, k))}${k === validKey ? (dir < 0 ? ' ↓' : ' ↑') : ''}</button></th>`).join('');
+  const body = sorted.map((r) => `<tr class="${small(r) ? 'faint' : ''}">${cols.map(([k, , f]) => `<td class="num">${k === 'name' ? nameCell(r) : fmtVal(r[k], f)}</td>`).join('')}</tr>`).join('');
   const seg = (attr, val, label, cur) => `<button type="button" class="seg press" data-${attr}="${val}" aria-pressed="${cur === val}">${label}</button>`;
+  const hasDecoded = V.cols.some(([k]) => srcOf(view, k) !== 'ea');
   const notes = {
-    tracked: 'Only counts appearances with game time. Tap a column to sort.',
+    tracked: 'Tracked league matches only, counting appearances with game time.',
     career: 'Career totals come straight from EA and include matches from before tracking started.',
-    defence: '“Conceded/90” = goals the team let in while that player was on the pitch, per full match. EA doesn’t share interceptions, blocks or dribbles.',
   };
   const duos = S.partnerships(D.matches, 3).slice(0, 6);
 
   return `<div class="page-title rise"><h1>Squad</h1><p class="muted">Tap a player for their profile. Badges show each player’s club.</p></div>
     <ul class="squad">${rows}</ul>
-    <section class="card pad rise"><div class="card-head"><h2>Stats table</h2></div>
-      <div class="segs">${seg('mode', 'tracked', 'Tracked', mode)}${seg('mode', 'career', 'Career', mode)}${seg('mode', 'defence', 'Defence', mode)}
-      ${mode !== 'career' ? `<span class="seg-gap"></span>${seg('period', 'all', 'All', state.period)}${seg('period', 'week', 'This week', state.period)}` : ''}</div>
-      ${sorted.length ? `<div class="table-wrap"><table><thead><tr>${th}</tr></thead><tbody>${sorted.map((r) => `<tr>${cols.map(([k]) => `<td class="num">${cell(k, r)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : '<p class="empty">No data for this view yet.</p>'}
-      <p class="note">${notes[mode]}</p></section>
+    <section class="card pad rise"><div class="card-head"><h2>Stats table</h2><button type="button" class="link-accent small" data-explain-view="${view}">What these mean</button></div>
+      <div class="segs">${Object.entries(VIEWS).map(([k, v]) => seg('mode', k, v.label, view)).join('')}</div>
+      ${view !== 'career' ? `<div class="segs">${seg('period', 'all', 'All tracked', state.period)}${seg('period', 'week', 'This week', state.period)}</div>` : ''}
+      ${sorted.length ? `<div class="table-wrap"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>` : '<p class="empty">No data for this view yet.</p>'}
+      <p class="note">${notes[view] || 'Tracked league matches. “/90” = per full match, from actual minutes played.'}${view !== 'career' ? ' Faded rows: fewer than 5 games, listed last.' : ''}</p>
+      ${hasDecoded ? '<p class="note"><sup class="src-mark d">D</sup> decoded from EA’s hidden event codes · <sup class="src-mark u">?</sup> unverified, didn’t match the in-game screen · no mark = EA’s own stat</p>' : ''}
+    </section>
     <section class="card pad rise"><div class="card-head"><h2>Best duos</h2><span class="muted small">3+ games together</span></div>
       ${duos.length ? `<ul class="list">${duos.map((d) => `<li class="block"><div class="row-between"><span>${plink(d.a)} + ${plink(d.b)}</span><span class="v num">${pct(d.winPct)}</span></div><div class="k num">${d.n} games · ${d.w}W ${d.d}D ${d.l}L · ${d.gf}–${d.ga}</div><div class="bar" aria-hidden="true"><i class="grow" style="width:${Math.round(d.winPct * 100)}%"></i></div></li>`).join('')}</ul>` : '<p class="empty">Needs a few more games together.</p>'}</section>
     <p class="note center">Want a badge? Tell AkshKN your club — or edit <b>players.json</b> in the GitHub repo.</p>
     ${footerHTML()}`;
+}
+
+/* ---------------- advanced stats (profile) ---------------- */
+function advancedHTML(name) {
+  const r = E.advancedTable(D.matches, D.events).find((x) => x.name === name);
+  if (!r) return '';
+  const p90 = (v) => (v == null ? '' : ` <small>${fx(v, 1)}/90</small>`);
+  const row = (key, value, extra = '') => `<li><button type="button" class="xlabel" data-explain="${key}">${esc(E.EXPLAIN[key]?.[0] || key)}</button><span class="xv num">${value}${extra}</span>${srcTag(E.SOURCE[key] || 'ea')}</li>`;
+  const known = r.fwdCompleted + r.backCompleted + r.sideCompleted;
+  const dirBar = known
+    ? `<div class="dirbar" role="img" aria-label="Pass direction: ${pct(r.fwdShare)} forward, ${pct(r.sideShare)} sideways, ${pct(r.backShare)} backward">
+        <i class="f" style="width:${(r.fwdShare || 0) * 100}%"></i><i class="s" style="width:${(r.sideShare || 0) * 100}%"></i><i class="b" style="width:${(r.backShare || 0) * 100}%"></i></div>
+       <div class="dirlegend num"><span>${pct(r.fwdShare)} forward</span><span>${pct(r.sideShare)} sideways</span><span>${pct(r.backShare)} back</span></div>`
+    : '';
+  const group = (title, items) => `<div class="xgroup"><h3>${title}</h3><ul class="xlist">${items.join('')}</ul></div>`;
+  return `<details class="card adv rise">
+    <summary><span><b>Advanced stats</b><span class="muted small"> · ${r.apps} tracked game${r.apps === 1 ? '' : 's'}, ${r.mins} min</span></span><span class="chev" aria-hidden="true">›</span></summary>
+    <div class="adv-body">
+      ${r.lowSample ? '<p class="note warnnote">Fewer than 5 tracked games — these numbers will swing a lot.</p>' : ''}
+      ${group('Passing', [
+        row('passPct', `${pct(r.passPct)} <small>${r.passesCompleted}/${r.passesAttempted}</small>`),
+        `<li class="xwide"><button type="button" class="xlabel" data-explain="fwdShare">Pass direction</button>${srcTag('decoded')}${dirBar}</li>`,
+        row('fwdPct', pct(r.fwdPct), p90(r.fwdPer90)),
+        row('throughBalls', r.throughBalls, p90(r.throughPer90)),
+        row('switches', r.switches),
+        row('firstTime', r.firstTime),
+        row('longPct', pct(r.longPct)),
+        row('secondAssists', r.secondAssists),
+        row('crossesCompleted', r.crossesCompleted),
+      ])}
+      ${group('Attacking', [
+        row('conversion', pct(r.conversion), ` <small>${r.goals}/${r.shots}</small>`),
+        row('gaPer90', fx(r.gaPer90, 2)),
+        row('shotsOnTarget', r.shotsOnTarget, ` <small>${pct(r.shotAcc)} acc</small>`),
+        row('inBoxShare', pct(r.inBoxShare)),
+        row('throughBallAssists', r.throughBallAssists),
+      ])}
+      ${group('Dribbling & possession', [
+        row('dribblesCompleted', r.dribblesCompleted, p90(r.dribblesPer90)),
+        row('beatTotal', r.beatTotal, ` <small>${r.beatSkill} with skills</small>`),
+        row('foulsWon', r.foulsWon),
+        row('possLost', r.possLost, ` <small>D ${r.possLostDef} · M ${r.possLostMid} · A ${r.possLostAtt}</small>`),
+        row('possWon', r.possWon, ` <small>D ${r.possWonDef} · M ${r.possWonMid} · A ${r.possWonAtt}</small>`),
+      ])}
+      ${group('Defending', [
+        row('tacklePct', pct(r.tacklePct), ` <small>${r.tacklesWon}/${r.tacklesAttempted}</small>`),
+        row('standingWon', r.standingWon, ` <small>${r.slidingWon} sliding</small>`),
+        row('interceptions', r.interceptions, p90(r.interceptionsPer90)),
+        row('dispossessed', r.dispossessed),
+        row('aerialsWon', r.aerialsWon),
+        row('foulsConceded', r.foulsConceded),
+        row('inPositionPct', pct(r.inPositionPct)),
+      ])}
+      <p class="note">Tap any stat to see what it measures. <b>Decoded</b> stats come from EA’s hidden event codes (community-mapped); <b>Unverified</b> ones didn’t match the in-game screen we checked. EA doesn’t record xG, progressive passes or pressure.</p>
+    </div></details>`;
+}
+
+const EA_EXPLAIN = {
+  apps: ['Apps', 'Tracked league games where the player got game time.'],
+  g: ['Goals', 'Goals in tracked league games.'], goals: ['Goals', 'Goals.'],
+  a: ['Assists', 'Assists in tracked league games.'], assists: ['Assists', 'Assists.'],
+  sh: ['Shots', 'Shots in tracked league games.'], shots: ['Shots', 'Shots.'],
+  gaPerGame: ['G+A per game', 'Goals plus assists per appearance.'],
+  rating: ['Rating', 'Average EA match rating in tracked games.'],
+  mom: ['MOTM', 'Man of the Match awards.'], winPct: ['Win %', 'Share of the player’s tracked games that were won.'],
+  tacklesWon: ['Tackles won', 'Tackles won.'], concededPer90: ['Conceded per 90', 'Goals the team let in while this player was on the pitch, per full match.'],
+  cs: ['Clean sheets', 'Tracked games with no goals conceded while the player played.'],
+  gamesPlayed: ['Games', 'All-time games for the club, per EA.'], ratingAve: ['Rating', 'All-time average rating, per EA.'],
+  passSuccessRate: ['Pass %', 'All-time pass accuracy, per EA.'], tackleSuccessRate: ['Tackle %', 'All-time tackle success, per EA.'],
+  shotSuccessRate: ['Shot %', 'All-time shot accuracy, per EA.'], manOfTheMatch: ['MOTM', 'All-time Man of the Match awards.'],
+  winRate: ['Win %', 'All-time win rate, per EA.'], proOverall: ['OVR', 'The player’s Pro overall rating.'],
+};
+
+function explainSheet(keys, title) {
+  const items = keys.filter((k) => E.EXPLAIN[k] || EA_EXPLAIN[k]).map((k) => {
+    const [label, text] = E.EXPLAIN[k] || EA_EXPLAIN[k];
+    const tier = E.SOURCE[k] || 'ea';
+    return `<li class="block"><div class="row-between"><b>${esc(label)}</b>${srcTag(tier)}</div><div class="k" style="margin-top:4px">${esc(text)}</div></li>`;
+  });
+  return `<div class="sheet-head"><h2>${esc(title)}</h2><button type="button" class="chip-btn press" data-close>Done</button></div>
+    <div class="sheet-body"><ul class="list">${items.join('')}</ul>
+      <p class="note">${Object.values(E.SOURCE_INFO).map((s) => `<b>${s.label}:</b> ${esc(s.text)}`).join('<br>')}</p></div>`;
 }
 
 /* ---------------- PROFILE ---------------- */
@@ -515,6 +625,7 @@ function viewProfile(name) {
       ${isMe ? '<button type="button" class="link-muted" id="switch-me">Not you? Switch</button>' : state.me ? '<a class="link-accent" href="#profile">My profile ›</a>' : ''}
     </div>
     ${card}
+    ${advancedHTML(name)}
     ${extras.join('')}
     ${footerHTML()}`;
 }
@@ -629,10 +740,14 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (el('#share-week')) { openSheet(recapHTML()); return; }
+  const ex = el('[data-explain]');
+  if (ex) { openSheet(explainSheet([ex.dataset.explain], E.EXPLAIN[ex.dataset.explain]?.[0] || 'Stat')); return; }
+  const exv = el('[data-explain-view]');
+  if (exv) { const v = VIEWS[exv.dataset.explainView]; openSheet(explainSheet(v.cols.map(([k]) => k), `${v.label} stats`)); return; }
   if (el('#recap-copy')) { copyRecap(); return; }
   const seg = el('[data-mode],[data-period]');
   if (seg) {
-    if (seg.dataset.mode) { state.mode = seg.dataset.mode; state.sort = { key: seg.dataset.mode === 'career' ? 'ratingAve' : seg.dataset.mode === 'defence' ? 'tm' : 'rating', dir: -1 }; }
+    if (seg.dataset.mode) { state.mode = seg.dataset.mode; state.sort = { key: VIEWS[seg.dataset.mode]?.sort || 'rating', dir: -1 }; }
     if (seg.dataset.period) state.period = seg.dataset.period;
     render(); return;
   }
@@ -653,16 +768,17 @@ window.addEventListener('hashchange', () => { closeSheet(); render(); });
 async function main() {
   applyTheme();
   try {
-    const [matches, members, club, status, snapIndex, players] = await Promise.all([
+    const [matches, members, club, status, snapIndex, players, events] = await Promise.all([
       getJSON(BASE + 'matches.json'),
       getJSON(BASE + 'members.json', []),
       getJSON(BASE + 'club.json', null),
       getJSON(BASE + 'status.json', null),
       getJSON(BASE + 'snapshots/index.json', []),
       getJSON(PLAYERS_URL, {}),
+      getJSON(BASE + 'events.json', {}),
     ]);
     PICKS = Object.fromEntries(Object.entries(players || {}).map(([n, v]) => [n, clubId(v)]).filter(([n, v]) => !n.startsWith('_') && v));
-    D = { matches, members, club, status, byWeek: S.groupByWeek(matches, TZ) };
+    D = { matches, members, club, status, events: events || {}, byWeek: S.groupByWeek(matches, TZ) };
     if (snapIndex.length >= 2) {
       const latest = snapIndex[snapIndex.length - 1];
       const cutoff = S.addDays(latest, -7);
