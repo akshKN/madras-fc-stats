@@ -2,12 +2,17 @@ import * as S from './stats.js';
 import { CLUBS, CLUB_ORDER, THEMES, tagFor, clubId } from './clubs.js';
 import * as E from './events.js';
 import * as A from './analytics.js';
+import * as X from './experiments.js';
 
 const cfg = window.MFC_CONFIG || {};
 const TZ = cfg.timeZone || 'America/Chicago';
 const qs = new URLSearchParams(location.search);
 const BASE = (qs.get('data') || cfg.dataBase || '').replace(/\/?$/, '/');
 const PLAYERS_URL = qs.get('players') || cfg.playersUrl || './players.json';
+const EXP_URL = qs.get('experiments') || cfg.experimentsUrl || './experiments.json';
+const REPO = cfg.repo || 'akshKN/madras-fc-stats';
+const EXP_PATH = cfg.experimentsPath || 'experiments.json';
+const DEMO = !!cfg.demoEditor; // offline preview: edits stay in memory
 const NOW = Date.now();
 const bust = Math.floor(NOW / 300000); // refresh at most every 5 minutes
 const REDUCED = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -51,6 +56,7 @@ const state = {
   period: 'all',
   sort: { key: 'rating', dir: -1 },
   cmp: { a: null, b: null, range: 10 },
+  anView: 'team', // analytics: team | exp
   me: store.get('me'),
   themeId: store.get('theme'),
   lastTab: null,
@@ -292,6 +298,14 @@ function viewHome() {
       <div class="form">${last10.map((x) => pill(x.result, `title="${esc(`${x.result} ${x.gf}–${x.ga} vs ${x.opp.name}`)}"`)).join('')}</div></div>`);
   }
 
+  const running = [...D.exps.list].filter((x) => !x.end).sort((a, b) => b.start.localeCompare(a.start))[0];
+  if (running) {
+    const r = X.evaluate(running, D.matches, TZ).during;
+    out.push(`<button type="button" class="card pad xhome press rise" data-an="exp"><span class="eyebrow">Experiment running</span>
+      <span class="row-between"><b>${esc(running.name)}</b><span class="chev" aria-hidden="true">›</span></span>
+      <span class="k num">${r.n ? `${r.n} game${r.n === 1 ? '' : 's'} · ${r.w}W ${r.d}D ${r.l}L · ${pct(r.winPct)} wins` : `Since ${dayFmt(running.start)} · no games yet`}</span></button>`);
+  }
+
   // This week
   const weeks = [...D.byWeek.keys()].sort().reverse();
   if (weeks.length) {
@@ -520,7 +534,11 @@ function viewAnalytics() {
   const hcRows = hc.map((r) => `<li class="block"><div class="row-between"><span><b>${r.humans}</b> of us</span><span class="v num">${pct(r.winPct)} wins</span></div><div class="k num">${r.n} game${r.n === 1 ? '' : 's'} · ${r.w}W ${r.d}D ${r.l}L · ${r.gf}–${r.ga} (${r.gdPerGame >= 0 ? '+' : ''}${fx(r.gdPerGame, 1)}/game)</div><div class="bar" aria-hidden="true"><i class="grow" style="width:${Math.round((r.winPct || 0) * 100)}%"></i></div></li>`).join('');
   const tr = A.trios(D.matches, 4).slice(0, 6);
   const trRows = tr.map((t) => `<li class="block"><div class="row-between"><span>${t.names.map(plink).join(' · ')}</span><span class="v num">${pct(t.winPct)}</span></div><div class="k num">${t.n} games · ${t.w}W ${t.d}D ${t.l}L · ${t.gf}–${t.ga}</div></li>`).join('');
-  return `<div class="page-title rise"><h1>Analytics</h1><p class="muted">Compare players and see what works for the squad.</p></div>
+  const anSeg = (v, label) => `<button type="button" class="seg press" data-an="${v}" aria-pressed="${state.anView === v}">${label}</button>`;
+  const head = `<div class="page-title rise"><h1>Analytics</h1><p class="muted">Compare players and see what works for the squad.</p></div>
+    <div class="segs">${anSeg('team', 'Players & team')}${anSeg('exp', 'Experiments')}</div>`;
+  if (state.anView === 'exp') return `${head}${experimentsHTML()}${footerHTML()}`;
+  return `${head}
     <section class="card pad rise"><div class="card-head"><h2>Compare</h2><span class="muted small">${cmp.games} club games</span></div>
       <div class="cmp-pick"><select id="cmp-a" aria-label="Player one">${opt(c.a)}</select><span class="muted">vs</span><select id="cmp-b" aria-label="Player two">${opt(c.b)}</select></div>
       <div class="segs">${seg(5, 'Last 5')}${seg(10, 'Last 10')}${seg('all', 'All tracked')}</div>
@@ -531,6 +549,135 @@ function viewAnalytics() {
     <section class="card pad rise"><div class="card-head"><h2>Best trios</h2><span class="muted small">4+ games together</span></div>
       ${trRows ? `<ul class="list">${trRows}</ul>` : '<p class="empty">Needs a few more games together.</p>'}</section>
     ${footerHTML()}`;
+}
+
+/* ---------------- experiments ---------------- */
+const isEditor = () => DEMO || !!store.get('gh');
+const ghOpts = () => ({ token: store.get('gh'), repo: REPO, path: EXP_PATH, branch: 'main' });
+async function saveExps(mutate, message) {
+  if (DEMO) { D.exps = { list: mutate(D.exps.list).map(X.clean), error: null }; return; }
+  D.exps = { list: await X.saveExperiments(ghOpts(), mutate, message), error: null };
+}
+const dayFmt = (iso) => new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(iso + 'T12:00:00Z'));
+const today = () => X.localDate(NOW / 1000, TZ);
+const signed = (v, d, mult = 1, suffix = '') => (v == null ? '' : `${v > 0 ? '+' : v < 0 ? '−' : '±'}${Math.abs(v * mult).toFixed(d)}${suffix}`);
+const expById = (id) => D.exps.list.find((x) => x.id === id);
+
+function expCard(x) {
+  const r = X.evaluate(x, D.matches, TZ);
+  const d = r.during, dl = r.delta;
+  const cell = (label, val, delta) => `<div class="xcell"><span class="k">${label}</span><b class="num">${val}</b>${delta ? `<span class="xd num">${delta}</span>` : ''}</div>`;
+  const grid = d.n ? `<div class="xgrid">
+      ${cell('Record', `${d.w}–${d.d}–${d.l}`)}
+      ${cell('Win rate', pct(d.winPct), signed(dl.winPct, 0, 100, ' pts'))}
+      ${cell('Scored /game', fx(d.gfPer, 1), signed(dl.gfPer, 1))}
+      ${cell('Conceded /game', fx(d.gaPer, 1), signed(dl.gaPer, 1))}
+      ${cell('Team rating', fx(d.rating, 2), signed(dl.rating, 2))}
+      ${cell('Clean sheets', d.cleanSheets)}
+    </div>
+    <p class="note">${r.baseline.n ? `Small numbers show the change from the ${r.baseline.n} game${r.baseline.n === 1 ? '' : 's'} before it started.` : 'No earlier tracked games to compare against.'}${r.lowSample ? ' Fewer than 5 games so far — too early to judge.' : ''}</p>`
+    : `<p class="empty">No league games ${r.active ? 'since it started yet' : 'were played in this window'}.</p>`;
+  const edit = isEditor() ? `<div class="xacts">${r.active ? `<button type="button" class="chip-btn press" data-x="end" data-id="${esc(x.id)}">End experiment</button>` : ''}<button type="button" class="link-muted" data-x="edit" data-id="${esc(x.id)}">Edit</button><button type="button" class="link-muted" data-x="del" data-id="${esc(x.id)}">Delete</button></div>` : '';
+  return `<li class="card pad xcard rise">
+    <div class="row-between"><h3>${esc(x.name)}</h3>${x.formation ? `<span class="fchip num">${esc(x.formation)}</span>` : ''}</div>
+    <div class="k">${r.active ? `Running since ${dayFmt(x.start)}` : `${dayFmt(x.start)} – ${dayFmt(x.end)}`} · ${d.n} game${d.n === 1 ? '' : 's'}</div>
+    ${x.change ? `<p class="xnote">${esc(x.change)}</p>` : ''}
+    ${grid}
+    ${x.expect ? `<p class="k">Expected: ${esc(x.expect)}</p>` : ''}
+    ${!r.active && (x.outcome || x.verdict) ? `<p class="xverdict"><b>${esc(X.OUTCOMES[x.outcome] || 'Ended')}</b>${x.verdict ? ` — ${esc(x.verdict)}` : ''}</p>` : ''}
+    ${edit}</li>`;
+}
+
+function experimentsHTML() {
+  const list = [...D.exps.list].sort((a, b) => b.start.localeCompare(a.start));
+  const active = list.filter((x) => !x.end), done = list.filter((x) => x.end);
+  const ed = isEditor();
+  return `${D.exps.error ? `<p class="note warnnote">${esc(D.exps.error)}</p>` : ''}
+    ${ed ? '<button type="button" class="primary press" data-x="add" style="margin:0 0 14px">+ New experiment</button>' : ''}
+    <div class="card-head"><h2>Running now</h2></div>
+    ${active.length ? `<ul class="xcards">${active.map(expCard).join('')}</ul>` : `<p class="empty">Nothing running. ${ed ? 'Start one above.' : ''}</p>`}
+    ${done.length ? `<div class="card-head" style="margin-top:18px"><h2>Finished</h2></div><ul class="xcards">${done.map(expCard).join('')}</ul>` : ''}
+    <p class="note center">${DEMO ? 'Preview: changes here are not saved anywhere.' : ed ? 'You can edit on this phone. <button type="button" class="link-muted" data-x="signout">Remove access</button>' : '<button type="button" class="link-muted" data-x="setup">Editor setup</button>'}</p>`;
+}
+
+const field = (id, label, value, attrs = '') => `<label class="fld"><span>${label}</span><input id="${id}" value="${esc(value)}" ${attrs}></label>`;
+function expFormSheet(id) {
+  const x = (id && expById(id)) || { name: '', start: today(), formation: '', change: '', expect: '', end: '', outcome: '', verdict: '' };
+  return `<div class="sheet-head"><h2>${id ? 'Edit experiment' : 'New experiment'}</h2><button type="button" class="chip-btn press" data-close>Cancel</button></div>
+    <div class="sheet-body">
+      ${field('x-name', 'Name', x.name, 'maxlength="60" placeholder="e.g. Switch to 3-5-2" autocomplete="off"')}
+      ${field('x-start', 'Start date', x.start, 'type="date"')}
+      <div class="fld"><span>Formation <small>(optional)</small></span>
+        <div class="segs">${X.FORMATIONS.map((f) => `<button type="button" class="seg press" data-fm="${f}" aria-pressed="${f === x.formation}">${f}</button>`).join('')}</div>
+        <input id="x-formation" value="${esc(x.formation)}" maxlength="20" placeholder="or type your own" aria-label="Formation" autocomplete="off"></div>
+      ${field('x-change', 'What are you changing? <small>(optional)</small>', x.change, 'maxlength="240" placeholder="e.g. KRRN96 as lone striker" autocomplete="off"')}
+      ${field('x-expect', 'What do you expect? <small>(optional)</small>', x.expect, 'maxlength="240" placeholder="e.g. concede less" autocomplete="off"')}
+      ${x.end ? `${field('x-end', 'End date', x.end, 'type="date"')}${field('x-verdict', 'Verdict', x.verdict, 'maxlength="240" autocomplete="off"')}` : ''}
+      <button type="button" class="primary press" data-x="save" data-id="${esc(id || '')}">${id ? 'Save changes' : 'Start experiment'}</button>
+      <p class="k center" id="x-msg" aria-live="polite"></p></div>`;
+}
+function expEndSheet(id) {
+  const x = expById(id);
+  return `<div class="sheet-head"><h2>End experiment</h2><button type="button" class="chip-btn press" data-close>Cancel</button></div>
+    <div class="sheet-body"><p class="muted small" style="margin-top:0">${esc(x.name)}</p>
+      <div class="fld"><span>How did it go?</span><div class="segs">${Object.entries(X.OUTCOMES).map(([k, v]) => `<button type="button" class="seg press" data-oc="${k}" aria-pressed="false">${v}</button>`).join('')}</div></div>
+      ${field('x-end', 'End date', today() < x.start ? x.start : today(), 'type="date"')}
+      ${field('x-verdict', 'One-line verdict <small>(optional)</small>', '', 'maxlength="240" placeholder="e.g. Conceded less, keeping it" autocomplete="off"')}
+      <button type="button" class="primary press" data-x="saveend" data-id="${esc(id)}">End experiment</button>
+      <p class="k center" id="x-msg" aria-live="polite"></p></div>`;
+}
+function expDeleteSheet(id) {
+  return `<div class="sheet-head"><h2>Delete?</h2><button type="button" class="chip-btn press" data-close>Cancel</button></div>
+    <div class="sheet-body"><p style="margin-top:0">Delete “${esc(expById(id).name)}”? This can’t be undone from the site.</p>
+      <button type="button" class="primary danger press" data-x="confirmdel" data-id="${esc(id)}">Delete experiment</button>
+      <p class="k center" id="x-msg" aria-live="polite"></p></div>`;
+}
+function setupSheet() {
+  const u = X.tokenUrls();
+  return `<div class="sheet-head"><h2>Editor setup</h2><button type="button" class="chip-btn press" data-close>Close</button></div>
+    <div class="sheet-body"><p class="muted small" style="margin-top:0">One-time, about 3 minutes. Only for people who log experiments — everyone else can just read them.</p>
+      <ol class="steps">
+        <li><a class="link-accent" href="${u.owner}" target="_blank" rel="noopener">Open GitHub’s token page</a> and sign in. The name, expiry (1 year) and permission are filled in for you.</li>
+        <li>Under <b>Repository access</b> choose <b>Only select repositories</b> and pick <b>madras-fc-stats</b>.</li>
+        <li>Tap <b>Generate token</b>, copy it, and paste it here.</li>
+      </ol>
+      <label class="fld"><span>Access token</span><input id="x-token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…"></label>
+      <button type="button" class="primary press" data-x="savetoken">Save on this phone</button>
+      <p class="k center" id="x-msg" aria-live="polite"></p>
+      <p class="note">The token stays on this phone only and is sent only to GitHub. Never share it in a chat. Not the repo owner? Ask AkshKN to add you as a collaborator, then <a class="link-muted" href="${u.collaborator}" target="_blank" rel="noopener">create this kind of token instead</a>.</p></div>`;
+}
+async function expAction(btn) {
+  const act = btn.dataset.x, id = btn.dataset.id;
+  if (act === 'add') return openSheet(expFormSheet(null));
+  if (act === 'edit') return openSheet(expFormSheet(id));
+  if (act === 'end') return openSheet(expEndSheet(id));
+  if (act === 'del') return openSheet(expDeleteSheet(id));
+  if (act === 'setup') return openSheet(setupSheet());
+  if (act === 'signout') { store.set('gh', null); return render(); }
+  const msg = $('x-msg'), val = (k) => $(k)?.value ?? '';
+  const busy = (on, text) => { btn.disabled = on; if (msg) msg.textContent = text; };
+  try {
+    if (act === 'savetoken') {
+      const token = val('x-token').trim();
+      busy(true, 'Checking with GitHub…');
+      await X.checkToken({ token, repo: REPO });
+      store.set('gh', token);
+      try { const cur = await X.loadExperiments(ghOpts()); D.exps = { list: cur.list, error: cur.error }; } catch { /* keep what we have */ }
+    } else if (act === 'save') {
+      const old = id ? expById(id) : {};
+      const entry = X.clean({ ...old, id: id || X.newId(), name: val('x-name'), start: val('x-start'), formation: val('x-formation'), change: val('x-change'), expect: val('x-expect'), ...(old.end ? { end: val('x-end'), verdict: val('x-verdict') } : {}) });
+      busy(true, 'Saving…');
+      await saveExps((l) => X.upsert(l, entry), `${id ? 'Update' : 'Start'} experiment: ${entry.name}`);
+    } else if (act === 'saveend') {
+      const entry = X.clean({ ...expById(id), end: val('x-end'), verdict: val('x-verdict'), outcome: modal.querySelector('[data-oc][aria-pressed="true"]')?.dataset.oc || '' });
+      busy(true, 'Saving…');
+      await saveExps((l) => X.upsert(l, entry), `End experiment: ${entry.name}`);
+    } else if (act === 'confirmdel') {
+      busy(true, 'Deleting…');
+      await saveExps((l) => X.remove(l, id), 'Delete experiment');
+    } else return;
+    closeSheet(); render();
+  } catch (e) { busy(false, e.message || 'Something went wrong. Try again.'); }
 }
 
 /* ---------------- advanced stats (profile) ---------------- */
@@ -803,6 +950,14 @@ document.addEventListener('click', (e) => {
     if (seg.dataset.period) state.period = seg.dataset.period;
     render(); return;
   }
+  const xb = el('[data-x]');
+  if (xb) { expAction(xb); return; }
+  const an = el('[data-an]');
+  if (an) { state.anView = an.dataset.an; go('analytics'); return; }
+  const fm = el('[data-fm]');
+  if (fm) { $('x-formation').value = fm.dataset.fm; modal.querySelectorAll('[data-fm]').forEach((b) => b.setAttribute('aria-pressed', b === fm)); return; }
+  const oc = el('[data-oc]');
+  if (oc) { modal.querySelectorAll('[data-oc]').forEach((b) => b.setAttribute('aria-pressed', b === oc)); return; }
   const rng = el('[data-range]');
   if (rng) { state.cmp.range = rng.dataset.range === 'all' ? 'all' : Number(rng.dataset.range); render(); return; }
   const sort = el('th button[data-sort]');
@@ -824,7 +979,7 @@ window.addEventListener('hashchange', () => { closeSheet(); render(); });
 async function main() {
   applyTheme();
   try {
-    const [matches, members, club, status, snapIndex, players, events] = await Promise.all([
+    const [matches, members, club, status, snapIndex, players, events, expFile] = await Promise.all([
       getJSON(BASE + 'matches.json'),
       getJSON(BASE + 'members.json', []),
       getJSON(BASE + 'club.json', null),
@@ -832,9 +987,13 @@ async function main() {
       getJSON(BASE + 'snapshots/index.json', []),
       getJSON(PLAYERS_URL, {}),
       getJSON(BASE + 'events.json', {}),
+      getJSON(EXP_URL, null),
     ]);
     PICKS = Object.fromEntries(Object.entries(players || {}).map(([n, v]) => [n, clubId(v)]).filter(([n, v]) => !n.startsWith('_') && v));
-    D = { matches, members, club, status, events: events || {}, byWeek: S.groupByWeek(matches, TZ) };
+    D = { matches, members, club, status, events: events || {}, byWeek: S.groupByWeek(matches, TZ), exps: X.parseFile(expFile) };
+    if (!DEMO && store.get('gh')) { // editors read straight from GitHub so they never see a 5-minute-old copy
+      try { const cur = await X.loadExperiments(ghOpts()); D.exps = { list: cur.list, error: cur.error }; } catch { /* fall back to the public copy */ }
+    }
     if (snapIndex.length >= 2) {
       const latest = snapIndex[snapIndex.length - 1];
       const cutoff = S.addDays(latest, -7);
@@ -863,3 +1022,6 @@ document.addEventListener('scroll', (e) => {
   const el = e.target;
   if (el?.classList?.contains('table-wrap')) el.parentElement.classList.toggle('end', el.scrollLeft + el.clientWidth >= el.scrollWidth - 4);
 }, true);
+
+// clear a stale form message as soon as the editor types again
+document.addEventListener('input', (e) => { if (e.target.closest?.('.sheet') && $('x-msg')) $('x-msg').textContent = ''; });

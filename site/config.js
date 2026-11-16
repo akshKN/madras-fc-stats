@@ -4,6 +4,10 @@ window.MFC_CONFIG = {
   dataBase: 'https://raw.githubusercontent.com/akshKN/madras-fc-stats/data/',
   // Club badges. Lives on the main branch, so editing it on GitHub needs no Netlify deploy.
   playersUrl: 'https://raw.githubusercontent.com/akshKN/madras-fc-stats/main/players.json',
+  // Tactical experiments. Also on main and outside site/, so saving one never triggers a deploy.
+  experimentsUrl: 'https://raw.githubusercontent.com/akshKN/madras-fc-stats/main/experiments.json',
+  repo: 'akshKN/madras-fc-stats',
+  experimentsPath: 'experiments.json',
   timeZone: 'America/Chicago',
   clubName: 'Madras FC',
   pollEveryHours: 2,
