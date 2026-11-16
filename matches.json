@@ -1334,7 +1334,9 @@
   "type": "league",
   "opp": {
    "id": "422518",
-   "name": "CubanPr"
+   "name": "CubanPr",
+   "skill": 1658,
+   "skillTs": 1794855877
   },
   "gf": 0,
   "ga": 3,
@@ -1434,7 +1436,9 @@
   "type": "league",
   "opp": {
    "id": "490998",
-   "name": "OneMoreGames"
+   "name": "OneMoreGames",
+   "skill": 1636,
+   "skillTs": 1794855877
   },
   "gf": 0,
   "ga": 2,
@@ -1555,7 +1559,9 @@
   "type": "league",
   "opp": {
    "id": "742283",
-   "name": "midtable fc"
+   "name": "midtable fc",
+   "skill": 1666,
+   "skillTs": 1794855877
   },
   "gf": 0,
   "ga": 3,
@@ -1676,7 +1682,9 @@
   "type": "league",
   "opp": {
    "id": "1975708",
-   "name": "arroz y frijole"
+   "name": "arroz y frijole",
+   "skill": 1587,
+   "skillTs": 1794855877
   },
   "gf": 2,
   "ga": 3,
@@ -1776,7 +1784,9 @@
   "type": "league",
   "opp": {
    "id": "1409785",
-   "name": "TVPA AMERICA"
+   "name": "TVPA AMERICA",
+   "skill": 1446,
+   "skillTs": 1794855877
   },
   "gf": 2,
   "ga": 0,
