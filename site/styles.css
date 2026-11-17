@@ -342,3 +342,6 @@ table.cmp .cl { text-align: center; font-size: .82rem; color: var(--muted); }
 .primary.danger { background: #c0392b; color: #fff; }
 .steps { margin: 0 0 14px; padding-left: 20px; display: grid; gap: 8px; font-size: .9rem; }
 .steps a, .note a { display: inline; padding: 0; min-height: 0; text-decoration: underline; }
+
+.rblock + .rblock { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.rblock .xgrid { margin-top: 10px; }

@@ -47,3 +47,21 @@ test('byOpponentStrength splits on rating and counts unrated games', () => {
   assert.equal(r.stronger.winPct, 0.5);
   assert.equal(A.byOpponentStrength([]).stronger.winPct, null);
 });
+
+test('roles: stats count only the matches played in that role', () => {
+  const Q = (name, pos, extra = {}) => ({ ...P(name), pos, ...extra });
+  const ms = [
+    M('1', 100, 'W', 3, 0, [Q('a', 'forward', { g: 2, rt: 9 }), Q('b', 'midfielder', { rt: 6 })]),
+    M('2', 200, 'L', 0, 1, [Q('a', 'midfielder', { rt: 5 }), Q('b', 'midfielder', { rt: 8 })]),
+    M('3', 300, 'W', 1, 0, [Q('a', 'forward', { g: 1, rt: 8 }), Q('c', 'forward', { sec: 0 })]),
+  ];
+  assert.deepEqual(A.rolesPlayed(ms), ['midfielder', 'forward']); // most-used first: 3 midfield games vs 2 forward
+  const fw = A.roleTable(ms, {}, 'forward');
+  assert.deepEqual(fw.map((r) => [r.name, r.apps, r.g]), [['a', 2, 3]]); // c had no game time
+  assert.equal(fw[0].rating, 8.5);
+  assert.equal(fw[0].small, true);
+  const mine = A.playerRoles(ms, {}, 'a');
+  assert.deepEqual(mine.map((r) => [r.role, r.apps, r.rating]), [['forward', 2, 8.5], ['midfielder', 1, 5]]);
+  assert.deepEqual(A.playerRoles(ms, {}, 'nobody'), []);
+  assert.deepEqual(A.roleTable(ms, {}, 'defender'), []);
+});

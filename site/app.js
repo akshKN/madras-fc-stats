@@ -57,6 +57,7 @@ const state = {
   sort: { key: 'rating', dir: -1 },
   cmp: { a: null, b: null, range: 10 },
   anView: 'team', // analytics: team | exp
+  role: null, // analytics roles section
   me: store.get('me'),
   themeId: store.get('theme'),
   lastTab: null,
@@ -549,6 +550,7 @@ function viewAnalytics() {
       <div class="segs">${seg(5, 'Last 5')}${seg(10, 'Last 10')}${seg('all', 'All tracked')}</div>
       <table class="cmp"><tbody>${rows}</tbody></table>
       ${warn}<p class="note">Highlighted = better. Per-90 stats use actual minutes. Through balls, dribbles, interceptions and conversion are decoded from EA’s hidden event codes.</p></section>
+    ${rolesSectionHTML()}
     <section class="card pad rise"><div class="card-head"><h2>Results by squad size</h2><span class="muted small">how many of us played</span></div>
       ${hcRows ? `<ul class="list">${hcRows}</ul>` : '<p class="empty">No data yet.</p>'}</section>
     ${oppHTML}
@@ -684,6 +686,34 @@ async function expAction(btn) {
     } else return;
     closeSheet(); render();
   } catch (e) { busy(false, e.message || 'Something went wrong. Try again.'); }
+}
+
+/* ---------------- roles ---------------- */
+function rolesHTML(name) {
+  const rows = A.playerRoles(D.matches, D.events, name);
+  if (!rows.length) return '';
+  const block = (r) => {
+    const R = A.ROLES[r.role];
+    return `<div class="rblock"><div class="row-between"><b>As a ${R.label.toLowerCase()}</b><span class="k num">${r.apps} game${r.apps === 1 ? '' : 's'} · ${r.w}W ${r.d}D ${r.l}L</span></div>
+      <div class="xgrid">${R.metrics.map(([k, label, f]) => `<div class="xcell"><span class="k">${label}</span><b class="num">${fmtVal(r[k], f)}</b></div>`).join('')}</div>
+      ${r.small ? '<p class="note warnnote">Fewer than 5 games in this role — treat as a rough guide.</p>' : ''}</div>`;
+  };
+  return `<section class="card pad rise"><div class="card-head"><h2>By role</h2><span class="muted small">where EA says they lined up</span></div>
+    ${rows.map(block).join('')}
+    <p class="note">EA reports the line (forward, midfielder, defender, keeper) for each match, not the exact position.</p></section>`;
+}
+function rolesSectionHTML() {
+  const roles = A.rolesPlayed(D.matches);
+  if (!roles.length) return '';
+  if (!roles.includes(state.role)) state.role = roles[0];
+  const R = A.ROLES[state.role];
+  const rows = A.roleTable(D.matches, D.events, state.role);
+  const th = `<th scope="col">Player</th><th scope="col" class="num">Games</th>${R.metrics.map(([, label]) => `<th scope="col" class="num">${label}</th>`).join('')}`;
+  const body = rows.map((r) => `<tr class="${r.small ? 'faint' : ''}${r.name === state.me ? ' me' : ''}"><td>${plink(r.name)}</td><td class="num">${r.apps}</td>${R.metrics.map(([k, , f]) => `<td class="num">${fmtVal(r[k], f)}</td>`).join('')}</tr>`).join('');
+  return `<section class="card pad rise"><div class="card-head"><h2>Roles</h2><span class="muted small">ranked by rating</span></div>
+    ${roles.length > 1 ? `<div class="segs">${roles.map((k) => `<button type="button" class="seg press" data-role="${k}" aria-pressed="${k === state.role}">${A.ROLES[k].plural}</button>`).join('')}</div>` : ''}
+    <div class="tw"><div class="table-wrap"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div></div>
+    <p class="note">Counts only the games each player spent as a ${R.label.toLowerCase()}. Faded rows: fewer than 5 games in the role, listed last.${roles.length < 3 ? ' Nobody has played the other lines in tracked games yet.' : ''}</p></section>`;
 }
 
 /* ---------------- advanced stats (profile) ---------------- */
@@ -829,6 +859,7 @@ function viewProfile(name) {
       ${isMe ? '<button type="button" class="link-muted" id="switch-me">Not you? Switch</button>' : state.me ? '<a class="link-accent" href="#profile">My profile ›</a>' : ''}
     </div>
     ${card}
+    ${rolesHTML(name)}
     ${advancedHTML(name)}
     ${extras.join('')}
     ${footerHTML()}`;
@@ -975,6 +1006,8 @@ document.addEventListener('click', (e) => {
   if (fm) { $('x-formation').value = fm.dataset.fm; modal.querySelectorAll('[data-fm]').forEach((b) => b.setAttribute('aria-pressed', b === fm)); return; }
   const oc = el('[data-oc]');
   if (oc) { modal.querySelectorAll('[data-oc]').forEach((b) => b.setAttribute('aria-pressed', b === oc)); return; }
+  const rl = el('[data-role]');
+  if (rl) { state.role = rl.dataset.role; render(); return; }
   const rng = el('[data-range]');
   if (rng) { state.cmp.range = rng.dataset.range === 'all' ? 'all' : Number(rng.dataset.range); render(); return; }
   const sort = el('th button[data-sort]');

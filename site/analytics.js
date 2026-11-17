@@ -78,3 +78,34 @@ export function byOpponentStrength(matches) {
   }
   return { stronger: fin(up), weaker: fin(down), unknown, rated: up.n + down.n };
 }
+
+/* ---------- roles: EA reports which line each player played in, per match ---------- */
+export const ROLE_ORDER = ['forward', 'midfielder', 'defender', 'goalkeeper'];
+// metric = [key, label, fmt]
+export const ROLES = {
+  forward: { label: 'Forward', plural: 'Forwards', metrics: [['rating', 'Rating', 'f2'], ['goalsPer90', 'Goals /90', 'f2'], ['shotsPer90', 'Shots /90', 'f1'], ['conversion', 'Conversion', 'pct'], ['dribblesPer90', 'Dribbles /90', 'f1'], ['gaPer90', 'G+A /90', 'f2']] },
+  midfielder: { label: 'Midfielder', plural: 'Midfielders', metrics: [['rating', 'Rating', 'f2'], ['passPct', 'Pass acc.', 'pct'], ['throughPer90', 'Through /90', 'f1'], ['fwdPct', 'Fwd pass acc.', 'pct'], ['gaPer90', 'G+A /90', 'f2'], ['interceptionsPer90', 'Intercepts /90', 'f1']] },
+  defender: { label: 'Defender', plural: 'Defenders', metrics: [['rating', 'Rating', 'f2'], ['tacklePct', 'Tackle success', 'pct'], ['interceptionsPer90', 'Intercepts /90', 'f1'], ['defActionsPer90', 'Def. actions /90', 'f1'], ['concededPer90', 'Conceded /90', 'f2'], ['passPct', 'Pass acc.', 'pct']] },
+  goalkeeper: { label: 'Goalkeeper', plural: 'Goalkeepers', metrics: [['rating', 'Rating', 'f2'], ['concededPer90', 'Conceded /90', 'f2'], ['cs', 'Clean sheets', 'int'], ['winPct', 'Win rate', 'pct']] },
+};
+const SMALL = 5;
+
+/** Per-player stats counting only the matches they played in `role`. EA's own stats win over decoded ones. */
+export function roleTable(matches, events, role) {
+  const only = matches.map((m) => ({ ...m, players: m.players.filter((p) => p.pos === role && played(p)) })).filter((m) => m.players.length);
+  const adv = new Map(E.advancedTable(only, events).map((r) => [r.name, r]));
+  return S.playerTable(only).map((b) => ({ ...(adv.get(b.name) || {}), ...b, role, small: b.apps < SMALL }))
+    .sort((x, y) => x.small - y.small || (y.rating ?? 0) - (x.rating ?? 0) || y.apps - x.apps);
+}
+
+/** Roles that anyone has actually played, most-used first. */
+export function rolesPlayed(matches) {
+  const n = {};
+  for (const m of matches) for (const p of m.players) if (played(p) && ROLES[p.pos]) n[p.pos] = (n[p.pos] || 0) + 1;
+  return ROLE_ORDER.filter((r) => n[r]).sort((a, b) => n[b] - n[a]);
+}
+
+/** One player's numbers in each role they have played, most-played first. */
+export function playerRoles(matches, events, name) {
+  return ROLE_ORDER.map((role) => roleTable(matches, events, role).find((r) => r.name === name)).filter(Boolean).sort((a, b) => b.apps - a.apps);
+}
