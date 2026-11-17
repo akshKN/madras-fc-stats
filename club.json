@@ -1,19 +1,19 @@
 {
  "clubId": "830697",
  "name": "MADRAS  FC",
- "currentDivision": 2,
+ "currentDivision": 3,
  "season": {
-  "division": 2,
+  "division": 3,
   "bestDivision": 2,
-  "wins": 51,
+  "wins": 52,
   "ties": 16,
-  "losses": 41,
-  "points": 51,
-  "games": 108,
-  "goals": 273,
-  "goalsAgainst": 241,
+  "losses": 43,
+  "points": 54,
+  "games": 111,
+  "goals": 275,
+  "goalsAgainst": 248,
   "promotions": 4,
-  "relegations": 0
+  "relegations": 1
  },
  "overall": {
   "clubId": "830697",
@@ -25,19 +25,19 @@
   "finishesInDivision4Group1": "0",
   "finishesInDivision5Group1": "0",
   "finishesInDivision6Group1": "0",
-  "gamesPlayed": "204",
+  "gamesPlayed": "207",
   "gamesPlayedPlayoff": "11",
-  "goals": "495",
-  "goalsAgainst": "472",
+  "goals": "497",
+  "goalsAgainst": "479",
   "promotions": "7",
-  "relegations": "1",
-  "losses": "83",
+  "relegations": "2",
+  "losses": "85",
   "ties": "28",
-  "wins": "93",
-  "wstreak": "0",
-  "unbeatenstreak": "0",
-  "skillRating": "1637",
+  "wins": "94",
+  "wstreak": "1",
+  "unbeatenstreak": "1",
+  "skillRating": "1615",
   "reputationtier": "1",
-  "leagueAppearances": "193"
+  "leagueAppearances": "196"
  }
 }
