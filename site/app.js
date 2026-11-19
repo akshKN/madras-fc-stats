@@ -13,8 +13,10 @@ const EXP_URL = qs.get('experiments') || cfg.experimentsUrl || './experiments.js
 const REPO = cfg.repo || 'akshKN/madras-fc-stats';
 const EXP_PATH = cfg.experimentsPath || 'experiments.json';
 const DEMO = !!cfg.demoEditor; // offline preview: edits stay in memory
-const NOW = Date.now();
-const bust = Math.floor(NOW / 300000); // refresh at most every 5 minutes
+let NOW = Date.now();
+// Normal loads share a 5-minute cache key (GitHub's file server caches each URL for about 5 minutes anyway).
+// The Refresh button passes fresh=true and uses a one-off key, which skips that cache.
+let bust = Math.floor(NOW / 300000);
 const REDUCED = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 const $ = (id) => document.getElementById(id);
@@ -238,6 +240,7 @@ function footerHTML() {
   const first = D.matches.length ? D.matches[D.matches.length - 1].ts * 1000 : null;
   return `<footer class="foot">
     ${st?.lastSuccess ? `<div>Updated ${esc(ago(st.lastSuccess))}${st.lastNewMatch ? ` · last new match found ${esc(ago(st.lastNewMatch))}` : ''}</div>` : ''}
+    <div>Checked ${esc(ago(D.fetchedAt || NOW))} · <button type="button" class="linkish" data-refresh>Refresh now</button></div>
     ${first ? `<div>Tracking league matches since ${esc(dateFmt.format(first))}.</div>` : ''}
     <div>Data from EA’s unofficial Pro Clubs endpoints. Not affiliated with or endorsed by EA.</div></footer>`;
 }
@@ -249,9 +252,13 @@ function renderTopbar() {
   const sub = [S.divisionLabel(c.currentDivision) || '', o.skillRating ? `Skill ${o.skillRating}` : ''].filter(Boolean).join(' · ');
   $('topbar').innerHTML = `<div class="brand"><div class="crest" aria-hidden="true">MFC</div>
     <div><div class="brand-name">${esc(cfg.clubName || c.name || 'Madras FC')}</div>${sub ? `<div class="brand-sub">${esc(sub)}</div>` : ''}</div></div>
+    <div class="actions">
+    <button type="button" class="icon-btn press" id="refresh" data-refresh aria-label="Refresh stats">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-3M4 5v3.5h3.5"/><path d="M4 13a8 8 0 0 0 14.9 3M20 19v-3.5h-3.5"/></svg>
+    </button>
     <button type="button" class="icon-btn press" id="open-theme" aria-label="Change club colours">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.5-1.1-.3-.3-.5-.7-.5-1.1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4.1-4-7.6-9-7.6z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7.5" r="1.2"/><circle cx="15" cy="7.8" r="1.2"/></svg>
-    </button>`;
+    </button></div>`;
 }
 
 function renderBanner() {
@@ -977,6 +984,7 @@ document.addEventListener('click', (e) => {
   const me = el('[data-me]');
   if (me) { state.me = me.dataset.me; store.set('me', state.me); render(); return; }
   if (el('#switch-me')) { state.me = null; store.set('me', null); go('profile'); return; }
+  if (el('[data-refresh]')) { refresh(true); return; }
   if (el('#open-theme')) { openSheet(themeSheetHTML()); return; }
   const th = el('[data-theme]');
   if (th) {
@@ -1030,35 +1038,44 @@ window.addEventListener('hashchange', () => {
 });
 
 /* ---------------- boot ---------------- */
+// Reads every data file and returns the new data set (throws if the main files can't be read).
+async function loadData(fresh) {
+  NOW = Date.now();
+  bust = fresh ? NOW : Math.floor(NOW / 300000);
+  const [matches, members, club, status, snapIndex, players, events, expFile] = await Promise.all([
+    getJSON(BASE + 'matches.json'),
+    getJSON(BASE + 'members.json', []),
+    getJSON(BASE + 'club.json', null),
+    getJSON(BASE + 'status.json', null),
+    getJSON(BASE + 'snapshots/index.json', []),
+    getJSON(PLAYERS_URL, {}),
+    getJSON(BASE + 'events.json', {}),
+    getJSON(EXP_URL, null),
+  ]);
+  const picks = Object.fromEntries(Object.entries(players || {}).map(([n, v]) => [n, clubId(v)]).filter(([n, v]) => !n.startsWith('_') && v));
+  const d = { matches, members, club, status, events: events || {}, byWeek: S.groupByWeek(matches, TZ), exps: X.parseFile(expFile), fetchedAt: NOW };
+  if (!DEMO && store.get('gh')) { // editors read straight from GitHub so they never see a 5-minute-old copy
+    try { const cur = await X.loadExperiments(ghOpts()); d.exps = { list: cur.list, error: cur.error }; } catch { /* fall back to the public copy */ }
+  }
+  if (snapIndex.length >= 2) {
+    const latest = snapIndex[snapIndex.length - 1];
+    const cutoff = S.addDays(latest, -7);
+    const older = [...snapIndex].reverse().find((d2) => d2 <= cutoff) ?? snapIndex[0];
+    if (older !== latest) {
+      const [a, b] = await Promise.all([getJSON(`${BASE}snapshots/${latest}.json`, []), getJSON(`${BASE}snapshots/${older}.json`, [])]);
+      d.careerDelta = S.careerDeltas(a, b);
+      d.careerSince = older;
+    }
+  }
+  return { d, picks };
+}
+
 async function main() {
   applyTheme();
   try {
-    const [matches, members, club, status, snapIndex, players, events, expFile] = await Promise.all([
-      getJSON(BASE + 'matches.json'),
-      getJSON(BASE + 'members.json', []),
-      getJSON(BASE + 'club.json', null),
-      getJSON(BASE + 'status.json', null),
-      getJSON(BASE + 'snapshots/index.json', []),
-      getJSON(PLAYERS_URL, {}),
-      getJSON(BASE + 'events.json', {}),
-      getJSON(EXP_URL, null),
-    ]);
-    PICKS = Object.fromEntries(Object.entries(players || {}).map(([n, v]) => [n, clubId(v)]).filter(([n, v]) => !n.startsWith('_') && v));
-    D = { matches, members, club, status, events: events || {}, byWeek: S.groupByWeek(matches, TZ), exps: X.parseFile(expFile) };
-    if (!DEMO && store.get('gh')) { // editors read straight from GitHub so they never see a 5-minute-old copy
-      try { const cur = await X.loadExperiments(ghOpts()); D.exps = { list: cur.list, error: cur.error }; } catch { /* fall back to the public copy */ }
-    }
-    if (snapIndex.length >= 2) {
-      const latest = snapIndex[snapIndex.length - 1];
-      const cutoff = S.addDays(latest, -7);
-      const older = [...snapIndex].reverse().find((d) => d <= cutoff) ?? snapIndex[0];
-      if (older !== latest) {
-        const [a, b] = await Promise.all([getJSON(`${BASE}snapshots/${latest}.json`, []), getJSON(`${BASE}snapshots/${older}.json`, [])]);
-        D.careerDelta = S.careerDeltas(a, b);
-        D.careerSince = older;
-      }
-    }
-    if (state.me && !D.members.some((m) => m.name === state.me) && !matches.some((m) => m.players.some((p) => p.name === state.me))) {
+    const { d, picks } = await loadData(false);
+    PICKS = picks; D = d;
+    if (state.me && !D.members.some((m) => m.name === state.me) && !D.matches.some((m) => m.players.some((p) => p.name === state.me))) {
       state.me = null; store.set('me', null); // player left the club
     }
   } catch (e) {
@@ -1069,6 +1086,45 @@ async function main() {
   renderBanner();
   render();
 }
+
+// Re-read the data without reloading the page. fresh=true (the Refresh button) skips GitHub's 5-minute cache.
+let refreshing = false;
+async function refresh(fresh) {
+  if (refreshing || !D) return;
+  refreshing = true;
+  const btn = $('refresh');
+  btn?.classList.add('spin');
+  const y = window.scrollY;
+  try {
+    const { d, picks } = await loadData(fresh);
+    const before = D.matches.length;
+    PICKS = picks; D = d;
+    renderTopbar(); renderBanner(); render();
+    window.scrollTo(0, y);
+    const added = D.matches.length - before;
+    toast(added > 0 ? `${added} new match${added === 1 ? '' : 'es'} loaded` : 'Up to date');
+  } catch (e) {
+    console.error(e);
+    toast('Couldn’t refresh — showing what was already loaded');
+  } finally {
+    refreshing = false;
+    $('refresh')?.classList.remove('spin');
+  }
+}
+
+let toastTimer;
+function toast(msg) {
+  let t = $('toast');
+  if (!t) { t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+// Coming back to the app after a while (phone unlocked, tab revisited): pick up new matches on its own.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && D && !refreshing && modal.hidden && Date.now() - NOW > 10 * 60000) refresh(false);
+});
 main();
 
 // fade hint on wide tables: hide once scrolled to the right edge

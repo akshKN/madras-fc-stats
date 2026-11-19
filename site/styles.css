@@ -71,6 +71,17 @@ a { color: var(--accent-text); }
 }
 .brand-name { font-family: var(--display); font-weight: 800; font-size: 22px; letter-spacing: .02em; text-transform: uppercase; line-height: 1; }
 .brand-sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
+.actions { display: flex; gap: 8px; flex: none; }
+.icon-btn.spin svg { animation: mfc-spin .8s linear infinite; }
+@keyframes mfc-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .icon-btn.spin svg { animation: none; opacity: .5; } }
+.linkish { background: none; border: 0; padding: 0; font: inherit; color: var(--accent-text); text-decoration: underline; cursor: pointer; }
+.toast {
+  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 84px); transform: translate(-50%, 12px); z-index: 60;
+  background: var(--surface); color: inherit; border: 1px solid var(--border); border-radius: 999px; padding: 10px 16px;
+  font-size: .86rem; box-shadow: 0 6px 24px rgba(0,0,0,.35); opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
 .icon-btn {
   width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; flex: none; cursor: pointer;
   background: var(--surface); border: 1px solid var(--border); color: var(--accent-text);
