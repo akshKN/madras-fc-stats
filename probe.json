@@ -1,0 +1,44 @@
+{
+ "at": "2026-11-20T01:03:41.457Z",
+ "results": {
+  "friendlyMatch": {
+   "status": "ok",
+   "count": 0,
+   "matchTypesSeen": [],
+   "alreadyInHistory": 0,
+   "newest": null
+  },
+  "cupMatch": {
+   "status": "error",
+   "message": "HTTP 400 from clubs/matches via impit"
+  },
+  "tournamentMatch": {
+   "status": "error",
+   "message": "HTTP 400 from clubs/matches via impit"
+  },
+  "eventMatch": {
+   "status": "error",
+   "message": "HTTP 400 from clubs/matches via impit"
+  },
+  "liveEventMatch": {
+   "status": "error",
+   "message": "HTTP 400 from clubs/matches via impit"
+  },
+  "clubCupMatch": {
+   "status": "error",
+   "message": "HTTP 400 from clubs/matches via impit"
+  },
+  "seasonalMatch": {
+   "status": "error",
+   "message": "HTTP 400 from clubs/matches via impit"
+  },
+  "privateMatch": {
+   "status": "error",
+   "message": "HTTP 400 from clubs/matches via impit"
+  },
+  "gameMatch": {
+   "status": "error",
+   "message": "HTTP 400 from clubs/matches via impit"
+  }
+ }
+}
