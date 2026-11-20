@@ -3,5 +3,6 @@
   "clubName": "MADRAS  FC",
   "platform": "common-gen5",
   "timeZone": "America/Chicago",
-  "matchTypes": ["leagueMatch", "playoffMatch"]
+  "matchTypes": ["leagueMatch", "playoffMatch"],
+  "probeTypes": ["friendlyMatch", "cupMatch", "tournamentMatch", "eventMatch", "liveEventMatch", "clubCupMatch", "seasonalMatch", "privateMatch", "gameMatch"]
 }

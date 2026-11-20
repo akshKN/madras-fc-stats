@@ -38,6 +38,8 @@ function realFetchers(log) {
     search: (c) => endpoints.search(c.platform, c.clubName.trim(), opts),
     seasonSearch: (c) => endpoints.seasonSearch(c.platform, c.clubName.trim(), opts),
     opponent: (c, clubId) => endpoints.overall(c.platform, clubId, opts),
+    // Probing guessed match types: one quick try each, since EA errors out on names it doesn't know.
+    probe: (c, type) => endpoints.matches(c.platform, c.clubId, type, { log, retries: 1 }),
   };
 }
 
@@ -86,6 +88,43 @@ export async function run({ config, dataDir, fetchers, now = Date.now(), log = c
   }
   if (await writeIfChanged(f('matches.json'), matches)) changed = true;
   if (await writeIfChanged(f('events.json'), events)) changed = true;
+
+  // 1b. Probe: ask EA about extra match types (live events, cups, ...) and record what comes back.
+  //     Findings only — nothing found here is added to the match history. A failure is never an error.
+  if (fetchers.probe && config.probeTypes?.length) {
+    try {
+      const results = {};
+      for (const type of config.probeTypes) {
+        try {
+          const raw = await fetchers.probe(config, type);
+          if (!Array.isArray(raw)) { results[type] = { status: 'unexpected shape', sample: JSON.stringify(raw).slice(0, 200) }; continue; }
+          const own = new Set(matches.map((m) => String(m.id)));
+          results[type] = {
+            status: 'ok',
+            count: raw.length,
+            matchTypesSeen: [...new Set(raw.map((m) => String(m.matchType)))],
+            alreadyInHistory: raw.filter((m) => own.has(String(m.matchId))).length,
+            newest: raw.length ? Math.max(...raw.map((m) => Number(m.timestamp) || 0)) : null,
+          };
+          for (const m of raw.slice(0, 3)) {
+            const file = f(`probe/${type}/${m.matchId}.json`);
+            if (m.matchId != null && !existsSync(file)) { await mkdir(path.dirname(file), { recursive: true }); await writeFile(file, JSON.stringify(m) + '\n'); changed = true; }
+          }
+          log(`probe ${type}: ${raw.length} returned`);
+        } catch (err) {
+          results[type] = { status: 'error', message: String(err.message).slice(0, 160) };
+          log(`probe ${type}: ${results[type].message}`);
+        }
+      }
+      const prev = await readJson(f('probe.json'), {});
+      if (JSON.stringify(prev.results) !== JSON.stringify(results)) {
+        await writeFile(f('probe.json'), JSON.stringify({ at: new Date(now).toISOString(), results }, null, 1) + '\n');
+        changed = true;
+      }
+    } catch (err) {
+      warnings.push(`probe failed: ${err.message}`);
+    }
+  }
 
   // 2. Career totals per member + a dated snapshot whenever they change (for week-over-week)
   try {

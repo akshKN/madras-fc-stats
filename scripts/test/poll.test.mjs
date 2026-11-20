@@ -170,3 +170,36 @@ test('does not look up ratings for old matches or junk values', async () => {
   const junk = await run({ config, dataDir: d2, fetchers: withOpp({ opponent: async () => [{ skillRating: '' }] }), now: NOW, log: quiet });
   assert.equal(junk.skillsAdded, 0);
 });
+
+test('probe records what extra match types return and never adds them to the history', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'mfc-'));
+  const ev = rawLeague().slice(0, 2).map((m, i) => ({ ...m, matchId: `99${i}`, matchType: '9' }));
+  const fetchers = {
+    ...fakeFetchers(),
+    probe: async (c, type) => {
+      if (type === 'eventMatch') return ev;
+      if (type === 'cupMatch') return [];
+      throw new Error('Oops, an error occurred');
+    },
+  };
+  const cfg = { ...config, probeTypes: ['eventMatch', 'cupMatch', 'nopeMatch'] };
+  const res = await run({ config: cfg, dataDir: dir, fetchers, log: () => {} });
+  assert.equal(res.ok, true);
+  assert.deepEqual(res.errors, []);
+  const probe = JSON.parse(await readFile(path.join(dir, 'probe.json'), 'utf8'));
+  assert.equal(probe.results.eventMatch.count, 2);
+  assert.deepEqual(probe.results.eventMatch.matchTypesSeen, ['9']);
+  assert.equal(probe.results.cupMatch.count, 0);
+  assert.equal(probe.results.nopeMatch.status, 'error');
+  assert.ok((await readdir(path.join(dir, 'probe', 'eventMatch'))).length === 2);
+  const matches = JSON.parse(await readFile(path.join(dir, 'matches.json'), 'utf8'));
+  assert.ok(!matches.some((m) => m.id.startsWith('99')));
+});
+
+test('a probe that blows up is only a warning, not a failed run', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'mfc-'));
+  const fetchers = { ...fakeFetchers(), probe: async () => { throw new Error('boom'); } };
+  const res = await run({ config: { ...config, probeTypes: ['x'] }, dataDir: dir, fetchers, log: () => {} });
+  assert.equal(res.ok, true);
+  assert.deepEqual(res.errors, []);
+});
